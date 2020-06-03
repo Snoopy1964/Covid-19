@@ -1,0 +1,9 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+#----------------------
+cov-dashboard/.api_key.R
+workspace.R
+data
