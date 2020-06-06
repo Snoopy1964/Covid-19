@@ -9,6 +9,7 @@
 
 library(shinydashboard)
 library(shiny)
+library(DT)
 library("utils")
 library("httr")
 library("jsonlite")
@@ -19,21 +20,32 @@ library("readxl")
 library("ggmap")
 # library("ggplotgui"
 library("ggrepel")
-library("geojsonio")
+# library("geojsonio")
 library("wppExplorer")
 
-cat("---------------------> Ui.R\n")
+#-----------------------------------------------------
+# initialization
+#-----------------------------------------------------
+cat("---------------------> Initialization Ui.R\n")
 print(environment())
+print(getwd())
+
+
+# load API key
+if (file.exists(".api_key.R")) {
+  source(".api_key.R")
+  message(cat("API key used: ",x.rapidapi.key))
+} else {
+  warning("no file .api_key.R found! data updates are not possible!", immediate. = TRUE)
+  
+}
 
 #-----------------------------------------------------
 # some helper functions
 #-----------------------------------------------------
 source("01_helper_func_data.R")
 
-countries <<- loadCountries()
-cat("\n---------------------> Ui.R: countries\n")
-print(countries)
-cat("\n---------------------> Ui.R: countries end\n")
+load("data//countries.rda", .GlobalEnv)
 
 map.country.charcode <- function(ccc) {
   return(
@@ -66,7 +78,8 @@ header  <- dashboardHeader(title = "Snoopy's Covid 19 dashboard")
 
 sidebar <-dashboardSidebar(
     sidebarMenu(
-      menuItem("Dashboard"   , tabName = "dashboard", icon = icon("dashboard")),
+      menuItem("World Overview"   , tabName = "dashboard", icon = icon("dashboard")),
+      menuItem("Statistics (day)", tabName = "statistics"    , icon = icon("th")),
       menuItem("Active Cases", tabName = "cases"    , icon = icon("th")),
       actionButton("load.data", "Reload data", icon = icon("refresh")),
       dateInput("date.snapshot", h3("Date input"), value = today())
@@ -106,6 +119,13 @@ body <- dashboardBody(
       ),
       # First tab content
       tabItem(
+        tabName = "statistics",
+        titlePanel("Numbers per day"),
+        fluidRow(
+          DT::dataTableOutput("cases.countries")
+        )
+      ),
+      tabItem(
         tabName = "cases",
         titlePanel("Compare countries"),
         # Boxes need to be put in a row (or column)
@@ -138,12 +158,21 @@ body <- dashboardBody(
           # column(
           #   width  = 12,
           #   height = 500,
-          #   box(
-          plotOutput("active", height = "800px", hover = "active_hover", click = "active_click"),
-          verbatimTextOutput("click_info"),
-          verbatimTextOutput("hover_info")
-          #   )
-          # )
+          box(
+            width = 9,
+            plotOutput("active", 
+                       height = "800px", 
+                       click  = clickOpts("active_click"),
+                       hover  = hoverOpts("active_hover", delay = 100, delayType = "debounce")
+            ),
+            uiOutput("hover_info")
+          ),
+          box(
+            width = 3,
+            verbatimTextOutput("click_info")
+            # verbatimTextOutput("hover_info")
+            #   )
+          )
         )
       )
     )

@@ -13,12 +13,14 @@
 #-----------------------------------------
 coi <- c("BE", "BW", "CA", "DK", "FI", "FR","DE", "GL", "IS", "IN", "IL", "IT", "JP", "LU", "MX", "NL", "NO", "PL", "PT", "RU", "ES", "SE", "CH", "TR", "GB", "US")
 
-df.latest <- df %>% group_by(charcode)  %>% dplyr::filter(day == today())
+# df.latest <- df %>% group_by(charcode)  %>% dplyr::filter(day == today())
+df.latest <- df %>% dplyr::filter(day == today())
+df.latest <- df %>% dplyr::filter(day == as.Date("2020-06-01"))
 
 gg.incidence.latest <- df.latest                                      %>% 
-  mutate(Rsum = cases.total/population*100000)                        %>% 
-  select(c(charcode, country.iso, Rsum, cases.total, population))     %>% 
-  ungroup(charcode)                                                   %>%
+  mutate(Rsum = cases/population*100000)                        %>% 
+  select(c(charcode, country.iso, Rsum, cases, population))     %>% 
+  # ungroup(charcode)                                                   %>%
   top_n(20, Rsum)                                                     %>%
   ggplot(aes(reorder(country.iso, Rsum), Rsum))
 
@@ -42,9 +44,9 @@ df.active <- df %>% dplyr::filter(charcode %in% coi)
 
 gg <- df.active %>% ggplot(aes(x=day))
 gg + 
-  geom_area(aes(y = cases.total,                 fill = "recovered")) + 
-  geom_area(aes(y = cases.active + deaths.total, fill = "active"))    +
-  geom_area(aes(y = deaths.total,                fill = "death"))     +
+  geom_area(aes(y = cases,           fill = "recovered")) + 
+  geom_area(aes(y = active + deaths, fill = "active"))    +
+  geom_area(aes(y = deaths,          fill = "death"))     +
   scale_fill_manual(name="", 
                     values = c("recovered"="#00ba38", "active"="#f8766d", "death"="dark grey"))  # line color
   

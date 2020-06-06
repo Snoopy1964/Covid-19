@@ -17,10 +17,11 @@ library("readxl")
 library("ggmap")
 # library("ggplotgui"
 library("ggrepel")
-library("geojsonio")
+# library("geojsonio")
 library("wppExplorer")
 library(shiny)
 library(shinydashboard)
+library(DT)
 
 #-----------------------------------------------------
 # initialization
@@ -31,7 +32,7 @@ print(getwd())
 
 
 # load API key
-if (file.exists(".api_key1.R")) {
+if (file.exists(".api_key.R")) {
   source(".api_key.R")
   message(cat("API key used: ",x.rapidapi.key))
 } else {
@@ -50,11 +51,7 @@ source("01_helper_func_data.R")
 #-----------------------------------------------------
 # setup global variables
 #-----------------------------------------------------
-countries <- loadCountries()
-
-cat("\n---------------------> Server.R: countries\n")
-print(countries)
-cat("\n---------------------> Server.R: countries end\n")
+## countries <- loadCountries()
 
 # dataInput <- function() {
 #   if( exists("df")) return(df)
@@ -65,7 +62,6 @@ cat("\n---------------------> Server.R: countries end\n")
 # }
 print(getwd())
 load("data//cases.rda", .GlobalEnv)
-print(df)
 print( parent.frame())
 
 # Define server logic required to draw a histogram
@@ -90,14 +86,15 @@ server <- function(input, output) {
   df.world <- reactive({
     return(df              %>% 
              group_by(day) %>% 
-             summarize(cases.total  = sum(cases.total),
-                       cases.active = sum(cases.active + deaths.total),
-                       deaths.total = sum(deaths.total),
-                       population   = sum(population, na.rm = TRUE))
+             summarize(cases      = sum(cases),
+                       active     = sum(active),
+                       deaths     = sum(deaths),
+                       population = sum(population, na.rm = TRUE))
     )
   })
-  df.latest <- reactive({
-    return( df %>% group_by(charcode)  %>% dplyr::filter(day == input$date.snapshot))
+  df.day <- reactive({
+    # return( df %>% group_by(charcode)  %>% dplyr::filter(day == input$date.snapshot))
+    return( df %>% dplyr::filter(day == input$date.snapshot))
   })
   
   world.cases <- function(sum.attribute, date = input$date.snapshot) {
@@ -126,11 +123,11 @@ server <- function(input, output) {
     
     if(input$data.selected == "absolute cases") {
       gg <- df.active() %>% ggplot(aes(x=day)) +
-        geom_area(aes(y = cases.total,                 fill = "recovered")) +
-        geom_area(aes(y = cases.active + deaths.total, fill = "active"))    +
-        geom_area(aes(y = deaths.total,                fill = "death"))     +
+        geom_area(aes(y = cases,           fill = "recovered")) +
+        geom_area(aes(y = active + deaths, fill = "active"))    +
+        geom_area(aes(y = deaths,          fill = "death"))     +
         theme(
-          legend.position = c(0.02, 0.98),
+          legend.position = "top",
           legend.justification = c("left", "top")
         ) +
         facet_wrap(
@@ -145,11 +142,12 @@ server <- function(input, output) {
     
     if(input$data.selected == "normalized cases per 100.000 residents") {
       gg <- df.active() %>% ggplot(aes(x=day)) +
-        geom_area(aes(y = cases.total/population*100000                  , fill = "recovered")) +
-        geom_area(aes(y = (cases.active + deaths.total)/population*100000, fill = "active"))    +
-        geom_area(aes(y = deaths.total/population*100000                 , fill = "death"))     +
+        geom_area(aes(y = cases/population*100000            , fill = "recovered")) +
+        geom_area(aes(y = (active + deaths)/population*100000, fill = "active"))    +
+        geom_area(aes(y = deaths/population*100000           , fill = "death"))     +
         theme(
-          legend.position = c(0.02, 0.98),
+          # legend.position = c(0.02, 0.98),
+          legend.position = "top",
           legend.justification = c("left", "top")
         ) +
         facet_wrap(
@@ -157,7 +155,7 @@ server <- function(input, output) {
           ncol = ncol
         ) +
         # ylim(0, 700) +
-        scale_fill_manual(name="cumulated incidences\nper 100.000 residents",
+        scale_fill_manual(name="cumulated incidences per 100.000 residents",
                           values = c("recovered"="#00ba38",
                                      "active"="#f8766d",
                                      "death"="dark grey"))  # line color
@@ -168,10 +166,11 @@ server <- function(input, output) {
   }
   
   generateWorldActive <- function() {
+    print(df.world())
     gg <- df.world() %>% ggplot(aes(x=day)) +
-      geom_area(aes(y = cases.total,  fill = "recovered")) +
-      geom_area(aes(y = cases.active, fill = "active"))    +
-      geom_area(aes(y = deaths.total, fill = "death"))     +
+      geom_area(aes(y = cases,  fill = "recovered")) +
+      geom_area(aes(y = active, fill = "active"))    +
+      geom_area(aes(y = deaths, fill = "death"))     +
       theme(
         legend.position = c(0.02, 0.98),
         legend.justification = c("left", "top")
@@ -185,9 +184,9 @@ server <- function(input, output) {
   generateWorldIncidents <- function() {
     gg <- df.world() %>% 
       mutate(
-        incidents.total  = cases.total/population*100000,
-        incidents.active = cases.active/population*100000,
-        mortality        = deaths.total/population*100000
+        incidents.total  = cases/population*100000,
+        incidents.active = active/population*100000,
+        mortality        = deaths/population*100000
       ) %>%
       ggplot(aes(x=day)) +
       geom_area(aes(y = incidents.total,  fill = "recovered")) +
@@ -204,16 +203,16 @@ server <- function(input, output) {
   }
   
   generateCountriesActive <- function(){
-    gg <- df.latest()                                                     %>% 
+    gg <- df.day()                                                     %>% 
       # dplyr::filter(charcode %in% coi)                                    %>%
-      ungroup(charcode)                                                   %>%
-      top_n(20, cases.total)                                                     %>%
-      ggplot(aes(reorder(country.iso, cases.total), cases.total)) + 
+      # ungroup(charcode)                                                   %>%
+      top_n(20, cases)                                                     %>%
+      ggplot(aes(reorder(country.iso, cases), cases)) + 
       geom_bar(stat="identity", fill = "#f8766d")               +
       coord_flip()                            +
-      geom_text(aes( y     = cases.total, 
+      geom_text(aes( y     = cases, 
                      label = paste(
-                       format(round(cases.total/1000,0), big.mark=".", decimal.mark=","),
+                       format(round(cases/1000,0), big.mark=".", decimal.mark=","),
                        "k")
       ), 
       hjust = "middle", 
@@ -225,11 +224,11 @@ server <- function(input, output) {
   } 
   
   generateCountriesIncidents <- function(){
-    gg <- df.latest()                                                     %>% 
+    gg <- df.day()                                                     %>% 
       # dplyr::filter(charcode %in% coi)                                    %>%
-      mutate(Rsum = cases.total/population*100000)               %>% 
-      select(c(charcode, country.iso, Rsum, cases.total, population)) %>% 
-      ungroup(charcode)                                                   %>%
+      mutate(Rsum = cases/population*100000)               %>% 
+      select(c(charcode, country.iso, Rsum, cases, population)) %>% 
+      # ungroup(charcode)                                                   %>%
       top_n(20, Rsum)                                                     %>%
       ggplot(aes(reorder(country.iso, Rsum), Rsum)) + 
       geom_bar(stat="identity")               +
@@ -246,7 +245,12 @@ server <- function(input, output) {
   observeEvent(input$load.data, {
     cat("hallo world load.data!\n")
     cat(getwd())
-    df <<- loadData()
+    # load countries
+    countries <<- loadCountries()                 # <<- : load in .GlobalEnv
+    save(df, file = "data//countries.rda")
+    
+    #load data for list of countries
+    df <<- loadData()                             # <<- : load in .GlobalEnv
     save(df, file = "data//cases.rda")
   })
   
@@ -259,7 +263,7 @@ server <- function(input, output) {
   output$world.total.cases <- renderValueBox(
     valueBox(
       h2("total cases"),
-      h3(format(world.cases("cases.total", day())[[2]], big.mark=".", decimal.mark=",")),
+      h3(format(world.cases("cases", day())[[2]], big.mark=".", decimal.mark=",")),
       "as.character(input$date.snapshot)",
       icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
       color = "blue"
@@ -269,7 +273,7 @@ server <- function(input, output) {
   output$world.active.cases <- renderValueBox(
     valueBox(
       h2("active cases"),
-      h3(format(world.cases("cases.active", day())[[2]], big.mark=".", decimal.mark=",")),
+      h3(format(world.cases("active", day())[[2]], big.mark=".", decimal.mark=",")),
       icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
       color = "red"
     )
@@ -278,7 +282,7 @@ server <- function(input, output) {
   output$world.recovered.cases <- renderValueBox(
     valueBox(
       h2("recovered cases"),
-      h3(format(world.cases("cases.recovered", day())[[2]], big.mark=".", decimal.mark=",")),
+      h3(format(world.cases("recovered", day())[[2]], big.mark=".", decimal.mark=",")),
       icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
       color = "green"
     )
@@ -287,29 +291,50 @@ server <- function(input, output) {
   output$world.death <- renderValueBox(
     valueBox(
       h2("total deaths"),
-      h3(format(world.cases("deaths.total", day())[[2]], big.mark=".", decimal.mark=",")),
+      h3(format(world.cases("deaths", day())[[2]], big.mark=".", decimal.mark=",")),
       icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
       color = "black"
     )
   )  
   
   output$world.active <- renderPlot({
-    plot(generateWorldActive())
-    cat(str(input))
+    gg <- generateWorldActive()
+    gg
+    # cat(str(input))
   })
   
   output$world.incidents <- renderPlot({
-    plot(generateWorldIncidents())
+    gg <- generateWorldIncidents()
+    gg
   })
 
   output$countries.active <- renderPlot({
-    plot(generateCountriesActive())
+    gg <- generateCountriesActive()
+    gg
   })
 
   output$countries.incidents <- renderPlot({
-    plot(generateCountriesIncidents())
+    gg <- generateCountriesIncidents()
+    gg
   })
-  
+
+#---------------------------------------
+# Statistics
+#---------------------------------------
+  output$cases.countries <- DT::renderDataTable({
+    df.tmp <- df.day() %>% select(country.iso, cases, cases.day, deaths, population)
+    print(df.tmp)
+    DT::datatable(
+      df.tmp, 
+      options = list(
+        lengthMenu = c(5, 10, 20, 50),
+        pageLength = 10,
+        # language   = list(thousands = "."),
+        order      = list(list(2,'desc'))
+      )) %>% 
+      formatRound(names(df.tmp)[-1], 0)
+  })
+    
 #---------------------------------------
 # Active Cases
 #---------------------------------------
@@ -318,31 +343,85 @@ server <- function(input, output) {
     # Anzahl Aktiver Erkrankungen pro 100.000 Einwohner pro Tag
     #   - gefiltert nach Tag
     #-----------------------------------------------------------
-    plot(generateActive())
-    # plot(generateActive(c("Germany", "United States")))
-    # plot(generateActive(input$countryId, input$data.attribute))
-    
-    
+    gg <- generateActive()
+    gg
   })
   
   # output$click_info <- renderText({
-  #   # paste0("x=", input$active_click$x, "\ny=", input$active_click$y)
-  #   nearPoints(df.active(), input$active_click, xvar="day", yvar="cases.total")
-  # 
+  #   paste("x=", input$active_click$x, "\ny=", input$active_click$y)
+  #   # nearPoints(df.active(), input$active_click, xvar="day", yvar="cases.total")
+  #   
   # })
   # 
-  # output$hover_info <- renderText({
-  #   paste0("x=", input$active_hover$x, "\ny=", input$active_hover$y)
+  output$click_info <- renderPrint({
+    if(is.null(input$active_click)) return(NULL)
+    
+    day.click <- as.character(as.Date(as.numeric(input$active_click$x), origin="1970-01-01"))
+    iso.click <- as.character(input$active_click$panelvar1)
+    df.tmp <- df.active() %>% dplyr::filter(day == day.click & country.iso == iso.click)
+    print(paste("Datum: ",day.click, "\n"))
+    print(df.tmp)
+    cat("df.tmp: ", df.tmp$day, df.tmp$cases.total)
+    cat("input$active_click:\n")
+    str(input$active_click)
+  })
+  
+  # output$hover_info <- renderPrint({
+  #   day.hover <- as.character(as.Date(as.numeric(input$active_hover$x), origin="1970-01-01"))
+  #   iso.hover <- as.character(input$active_hover$panelvar1)
+  #   df.tmp <- df.active() %>% dplyr::filter(day == day.hover & country.iso == iso.hover)
+  #   print(paste("Datum: ",day.hover, "\n"))
+  #   print(df.tmp)
+  #   cat("df.tmp: ", df.tmp$day, df.tmp$cases.total)
+  #   cat("input$active_hover:\n")
+  #   str(input$active_hover)
   # })
   
+  
+  output$hover_info <- renderUI({
+    hover <- input$active_hover
+    if(is.null(hover)) return(NULL)
+    day.hover <- as.character(as.Date(as.numeric(input$active_hover$x), origin="1970-01-01"))
+    iso.hover <- as.character(input$active_hover$panelvar1)
 
-  # output$active2 <- renderPlot({
-  #   #-----------------------------------------------------------
-  #   # Anzahl Aktiver Erkrankungen pro 100.000 Einwohner pro Tag
-  #   #   - gefiltert nach Tag
-  #   #-----------------------------------------------------------
-  #   plot(generateActive(input$countryId2))
-  #   # plot(generateActive(input$countryId2), input$data.attribute)
-  # })
+    df.tmp <- df.active() %>% dplyr::filter(day == day.hover & country.iso == iso.hover)
+    
+    if(nrow(df.tmp) == 0) return(NULL)
+    
+    # calculate point position INSIDE the image as percent of total dimensions
+    # from left (horizontal) and from top (vertical)
+    left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
+    top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
+    
+    # calculate distance from left and bottom side of the picture in pixels
+    # left_px <- hover$range$right #+ left_pct * (hover$range$right - hover$range$left)
+    # top_px <- hover$range$top #+ top_pct * (hover$range$bottom - hover$range$top)
+    left_px <- hover$range$left 
+    top_px  <- hover$range$top 
+    
+    # create style property fot tooltip
+    # background color is set so tooltip is a bit transparent
+    # z-index is set so we are sure are tooltip will be on top
+    
+    style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
+                   "left:", left_px + 2, "px; top:", top_px + 2, "px;")
+    
+    
+    
+    # actual tooltip created as wellPanel
+    wellPanel(
+      style = style,
+      p(HTML(paste0("<b> Cases in </b>"  , df.tmp$country.iso, "<br/>",
+                    "<b> date: </b>"     , df.tmp$day, "<br/>",
+                    "<b> total: </b>"    , format(df.tmp$cases, big.mark = ".", decimal.mark = ","), "<br/>",
+                    "<b> recovered: </b>", format(df.tmp$recovered, big.mark = ".", decimal.mark = ","), "<br/>",
+                    "<b> deaths: </b>"   , format(df.tmp$deaths, big.mark = ".", decimal.mark = ","), "<br/>",
+                    "<b> active: </b>   ", format(df.tmp$active, big.mark = ".", decimal.mark = ","), "<br/>"
+      )))
+    )
+  })
+  
+  
+
 }
 

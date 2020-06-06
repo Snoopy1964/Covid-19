@@ -30,7 +30,7 @@ library("readxl")
 library("ggmap")
 # library("ggplotgui"
 library("ggrepel")
-library("geojsonio")
+#library("geojsonio")
 library("wppExplorer")
 
 cat("-------------------> helper functions\n")
@@ -44,33 +44,77 @@ if (exists("x.rapiapi.key")) {
 
 
 
-loadCountries <- function() {
+loadCountries <- function(source = "rapidapi") {
   # load iso data for countries
   data("iso3166")
   population.tmp <- as.tibble(wpp.by.year(wpp.indicator("tpop"), 2020))
   
-  # dowload list of countries
-  resp.tmp <- GET("https://covid-193.p.rapidapi.com/countries", 
-                  add_headers('x-rapidapi-host' = 'covid-193.p.rapidapi.com',
-                              'x-rapidapi-key'  = x.rapidapi.key)
-                  # query = list(country = "Germany")
-  )
-  df.raw.tmp    <- fromJSON(content(resp.tmp, "text", encoding="UTF-8"))
-  countries.tmp <- df.raw.tmp[5][1]$response 
+  # load countries from RAPID API  
+  if(source == "rapidapi") {
+    # dowload list of countries
+    resp.tmp <- GET("https://covid-193.p.rapidapi.com/countries", 
+                    add_headers('x-rapidapi-host' = 'covid-193.p.rapidapi.com',
+                                'x-rapidapi-key'  = x.rapidapi.key)
+                    # query = list(country = "Germany")
+    )
+    df.raw.tmp    <- fromJSON(content(resp.tmp, "text", encoding="UTF-8"))
+    countries.tmp <- df.raw.tmp[5][1]$response 
+    
+    return(
+      countries.tmp                           %>% 
+        as_tibble(countries.tmp)                           %>% 
+        mutate(country.iso = convert.iso(value))           %>% 
+        left_join(iso3166, by = c("country.iso" = "name")) %>% 
+        dplyr::filter(!is.na(charcode))                    %>%
+        rename(country = value)                            %>%
+        left_join(population.tmp, by = "charcode")         %>%
+        rename(population = value)                         %>%
+        mutate(population = population*1000)
+    )
+  } else if(source == "jhu") {
+    jhu_countries <- as_tibble(
+      data.table::fread(
+        "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/UID_ISO_FIPS_LookUp_Table.csv", 
+        na.string = "---") # Namibia has iso2 = NA :-(
+    )                                                       %>% 
+      # remove cruise ships -> they don't have an iso2 code
+      dplyr::filter(iso2 != "")                             %>%
+      
+      # use variable names from iso366 package
+      # !!!! Attention !!!!
+      # avoid iso2 and iso3 clash for Kosovo, 
+      # jhu data set has mapped it to XK/XKS but 
+      # iso3166 data used XK/XKW for region Western Asia
+      # XKX is temporary iso3 code -> KX is not used
+      mutate(
+        charcode  = if_else(iso2 == "XK" , "KX" , iso2),
+        charcode3 = if_else(iso3 == "XKS", "XKX", iso3)
+      )                                                     %>%
+      left_join(iso3166, by = "charcode")                   %>%
+      # remove "Unkonwn Province_States
+      dplyr::filter(Province_State != "Unknown")            %>%
+      # correct column is.country 
+      # Condition: Province_State is not empty 
+      mutate(is.country = if_else(UID < 1000, TRUE, FALSE)) %>%
+      # select relevant columns
+      select(Combined_Key, name, charcode, charcode3.x, UID, uncode, Population, is.country) %>% 
+      # rename to output format
+      rename(
+        country     = Combined_Key, 
+        country.iso = name,
+        charcode3   = charcode3.x,
+        population  = Population
+      )
+      
+    return(jhu_countries %>% dplyr::filter(is.country))
+    
+  } else {
+    stop(paste("unkonowd data source: ",source))
+  }
   
-  return(
-    countries.tmp                           %>% 
-      as.tibble(countries.tmp)                           %>% 
-      mutate(country.iso = convert.iso(value))           %>% 
-      left_join(iso3166, by = c("country.iso" = "name")) %>% 
-      dplyr::filter(!is.na(charcode))                    %>%
-      rename(country = value)                            %>%
-      left_join(population.tmp, by = "charcode")         %>%
-      rename(population = value)                         %>%
-      mutate(population = population*1000)
-  )
 }
 
+  
 loadData <- function() {
   
   #----------------------------------------------
@@ -88,7 +132,7 @@ loadData <- function() {
     )
     df.raw <- fromJSON(content(resp.tmp, "text", encoding="UTF-8"))
     if (i==1) {
-      df.all.tmp <- as.tibble(jsonlite::flatten(df.raw[5][1]$response))
+      df.all.tmp <- as_tibble(jsonlite::flatten(df.raw[5][1]$response))
     } else {
       df.all.tmp <- rbind(df.all.tmp, as.tibble(jsonlite::flatten(df.raw[5][1]$response)))
     }
@@ -109,27 +153,26 @@ loadData <- function() {
     arrange(country,time)   %>%
     select(c(country, day, time, cases.critical, cases.recovered, cases.total, deaths.total, tests.total)) %>%
     summarize(
-      last = max(time), 
-      cases.total = max(cases.total), 
-      cases.critical=max(cases.critical), 
-      cases.recovered=max(cases.recovered), 
-      deaths.total=max(deaths.total), 
-      tests.total = max(tests.total)
+      last      = max(time), 
+      cases     = max(cases.total), 
+      critical  = max(cases.critical), 
+      recovered = max(cases.recovered), 
+      deaths    = max(deaths.total), 
+      tests     = max(tests.total)
     )                                                 %>%
     left_join(countries, by=c("country" = "country")) %>%
     ungroup(country)                                  %>%
-    select(c(charcode, day, last, country.iso, population, cases.total, cases.critical, cases.recovered, deaths.total, tests.total))
+    select(c(charcode, day, last, country.iso, population, cases, recovered, deaths, tests))
   
   
   return( df.tmp %>%
-            group_by(charcode)  %>% 
             mutate(
-              cases.active  = cases.total - cases.recovered,
-              cases.day     = cases.total - dplyr::lag(cases.total, default=0),
-              recovered.day = cases.recovered - dplyr::lag(cases.recovered, default=0),
-              active.day    = cases.active - dplyr::lag(cases.active, default=0),
-              tests.day     = tests.total - dplyr::lag(tests.total, default=NA),
-              deaths.day    = deaths.total - dplyr::lag(deaths.total, default=0)
+              active        = cases      - recovered - deaths,
+              cases.day     = cases      - dplyr::lag(cases,      default=0),
+              recovered.day = recovered  - dplyr::lag(recovered,  default=0),
+              active.day    = active     - dplyr::lag(active,     default=0),
+              tests.day     = tests      - dplyr::lag(tests,      default=NA),
+              deaths.day    = deaths     - dplyr::lag(deaths,     default=0)
             )
   )
 }

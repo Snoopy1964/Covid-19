@@ -8,7 +8,7 @@ library("readxl")
 library("ggmap")
 # library("ggplotgui"
 library("ggrepel")
-library("geojsonio")
+# library("geojsonio")
 library("wppExplorer")
 
 
