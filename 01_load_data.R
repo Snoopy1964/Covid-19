@@ -24,12 +24,12 @@ source("cov-dashboard//01_helper_func_data.R")
 #----------------------------------------------
 # (1) dowload list of countries
 #----------------------------------------------
-countries <- loadCountries()
+countries <- loadCountries("jhu")
 
 #----------------------------------------------
 # (2) initial load - only if there is no data
 #----------------------------------------------
-df <- loadData()
+df <- loadData("jhu")
 
 #----------------------------------------------
 # ( ) clean up variables, tibbles, etc...

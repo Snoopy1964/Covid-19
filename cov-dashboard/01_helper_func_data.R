@@ -44,7 +44,7 @@ if (exists("x.rapiapi.key")) {
 
 
 
-loadCountries <- function(source = "rapidapi") {
+loadCountries <- function(source = "jhu") {
   # load iso data for countries
   data("iso3166")
   population.tmp <- as.tibble(wpp.by.year(wpp.indicator("tpop"), 2020))
@@ -114,8 +114,79 @@ loadCountries <- function(source = "rapidapi") {
   
 }
 
+loadData      <- function(source = "jhu") {
+  if(source == "rapidAPI") {
+    return(loadData.rapidAPI())
+  } else if(source == "jhu") {
+    return(loadData.jhu())
+  } else {
+    stop(paste("unknown data source: ", source))
+  }
+}
+
+loadData.jhu <- function() {
+  # load latest Covid-2019 data: confirmed cases
+  jhu_cases <- as_tibble(data.table::fread("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"))
+  cases.check.sum <- sum(jhu_cases[[ncol(jhu_cases)]]) # check sum of all cases 
+  cases     <- jhu_cases %>% 
+    pivot_longer(names(jhu_cases)[-(1:4)], names_to = "day", values_to = "cases")
   
-loadData <- function() {
+  # load latest Covid-2019 data: deaths
+  jhu_deaths <- as_tibble(data.table::fread("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv"))
+  deaths.check.sum <- sum(jhu_deaths[[ncol(jhu_deaths)]]) # check sum of all deaths 
+  deaths     <- jhu_deaths %>% 
+    pivot_longer(names(jhu_deaths)[-(1:4)], names_to = "day", values_to = "deaths")
+  
+  # load latest Covid-2019 data: recovered
+  jhu_rec <- as_tibble(data.table::fread("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv"))
+  rec.check.sum <- sum(jhu_rec[[ncol(jhu_rec)]]) # check sum of all recovered 
+  recovered     <- jhu_rec %>% 
+    pivot_longer(names(jhu_rec)[-(1:4)], names_to = "day", values_to = "recovered")
+  
+  # join data
+  df.jhu <- cases %>% left_join(deaths) %>% left_join(recovered) %>%
+    select(-c("Lat", "Long"))                                    %>%
+    mutate(day       = mdy(day),
+           recovered = if_else(is.na(recovered), as.integer(0), recovered),
+           active    = cases - deaths - recovered)               %>%
+    rename(country = `Country/Region`)                           %>%
+
+# For the following countries the numbers are not availbale on country level, 
+# but only on Province/State level 
+#
+#   `Country/Region`      nr
+#   <chr>              <int>
+#   1 Australia         1088
+#   2 Canada            1904
+#   3 China             4488
+#   4 Denmark            408
+#   5 France            1496
+#   6 Netherlands        680
+#   7 United Kingdom    1496 
+#
+# -> aggregate the numbers per day and Country/Region  
+    group_by( country, day)                                      %>% 
+    summarize(cases     = sum(cases), 
+              active    = sum(active),
+              deaths    = sum(deaths), 
+              recovered = sum(recovered)
+              )                                                  %>%
+    # join with country data
+    left_join(countries, by = "country")                         %>%
+    # select the relevant columns (same definition as of rapidAPI
+    select(c(charcode, day, country.iso, population, cases, active, recovered, deaths))
+  
+  return(df.jhu %>% ungroup(country) %>%
+           mutate(
+             cases.day     = cases      - dplyr::lag(cases,      default=0),
+             active.day    = active     - dplyr::lag(active,     default=0),
+             recovered.day = recovered  - dplyr::lag(recovered,  default=0),
+             deaths.day    = deaths     - dplyr::lag(deaths,     default=0)
+           )
+  )
+}
+  
+loadData.rapidAPI <- function() {
   
   #----------------------------------------------
   # (2) initial load - only if there is no data
@@ -171,7 +242,7 @@ loadData <- function() {
               cases.day     = cases      - dplyr::lag(cases,      default=0),
               recovered.day = recovered  - dplyr::lag(recovered,  default=0),
               active.day    = active     - dplyr::lag(active,     default=0),
-              tests.day     = tests      - dplyr::lag(tests,      default=NA),
+              # tests.day     = tests      - dplyr::lag(tests,      default=NA),
               deaths.day    = deaths     - dplyr::lag(deaths,     default=0)
             )
   )

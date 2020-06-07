@@ -82,7 +82,7 @@ sidebar <-dashboardSidebar(
       menuItem("Statistics (day)", tabName = "statistics"    , icon = icon("th")),
       menuItem("Active Cases", tabName = "cases"    , icon = icon("th")),
       actionButton("load.data", "Reload data", icon = icon("refresh")),
-      dateInput("date.snapshot", h3("Date input"), value = today())
+      dateInput("date.snapshot", h3("Date input"), value = today()-1)
       #dateInput("date.snapshot", h3("Date input"), value = as.Date("2020-05-30"))
     )
   )
@@ -135,9 +135,9 @@ body <- dashboardBody(
             height = 200,
             # width  = 500,
             box(
-              title = "Select countries to compare",
+              # title = "Select countries to compare",
               selectInput("countryId" , 
-                          NA, coi, 
+                          "Select countries to compare", coi, 
                           selected = c("Germany", 
                                        "United States",
                                        "Russian Federation",
@@ -146,10 +146,10 @@ body <- dashboardBody(
                           width = "auto")
             ),
             box(
-              title = "Input Data",
+              # title = "Input Data",
               radioButtons(
                 "data.selected",
-                NA, c("normalized cases per 100.000 residents", "absolute cases"),
+                "Input Data", c("normalized cases per 100.000 residents", "absolute cases"),
                 selected = "normalized cases per 100.000 residents")
             )
           )

@@ -51,4 +51,48 @@ gg +
                     values = c("recovered"="#00ba38", "active"="#f8766d", "death"="dark grey"))  # line color
   
   
+#-----------------------------------------------------------
+# CI pro Tag pro 100.000 Einwohner
+#-----------------------------------------------------------
+gg <- df %>% 
+  dplyr::filter(charcode %in% c("DE", "US", "BR") & day >= "2020-03-01") %>% 
+  group_by(charcode)                                                     %>%
+  arrange(charcode,day)                                                  %>% 
+  mutate(
+    CI   = cases.day/population*100000,
+    CI.7 = rollmean(CI,7, align = "right", fill = NA)
+  )                                                                      %>%
+  select(c(1:4, "CI", "CI.7"))                                           %>%
+  ggplot(aes(x=day))
+
+gg + 
+  geom_smooth(aes(y=CI, color = charcode)) + 
+  geom_point(aes(y=CI.7, color = charcode))
+
+
+
+#-----------------------------------------------------------
+# CI pro Tag pro 100.000 Einwohner (World)
+#-----------------------------------------------------------
+gg <- df %>% 
+  group_by(day)                           %>%
+  dplyr::filter(day >= "2020-02-01")      %>%
+  summarize(
+    cases.day     = sum(cases.day),
+    active.day    = sum(active.day),
+    recovered.day = sum(recovered.day),
+    deaths.day    = sum(deaths.day)
+  )                                       %>%
+  ggplot(aes(x=day))
+
+gg + 
+  geom_bar(aes(y=cases.day,                 fill = "total"),     stat="identity") +
+  geom_bar(aes(y=-deaths.day-recovered.day, fill = "recovered"), stat="identity") +
+  geom_bar(aes(y=-deaths.day,               fill = "death"),     stat="identity") +
+  scale_fill_manual(name="", 
+                    values = c("recovered"="#00ba38", "total"="#f8766d", "death"="dark grey"))  # line color
+
+  
+
+
 
