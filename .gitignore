@@ -5,5 +5,6 @@
 
 #----------------------
 cov-dashboard/.api_key.R
+cov-dashboard/rsconnect
 workspace.R
 data
