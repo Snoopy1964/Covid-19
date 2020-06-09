@@ -45,7 +45,7 @@ if (file.exists(".api_key.R")) {
 # some helper functions
 #-----------------------------------------------------
 
-source("01_helper_func_data.R")
+#source("01_helper_func_data.R")
 # 
 # 
 #-----------------------------------------------------
@@ -61,7 +61,7 @@ source("01_helper_func_data.R")
 #   }
 # }
 cat("---> before loading of cases.rda\n")
-load("data//cases.rda", .GlobalEnv)
+# load("data//cases.rda", .GlobalEnv)
 # to reproduce error during reload, use old data
 # load("data//cases2020-06-02.rda", .GlobalEnv)
 
@@ -71,29 +71,26 @@ server <- function(input, output) {
   cat("------> server()\n")
   
   
-  # load.data <- eventReactive(input$load.data, {
-  #   cat("---------> load.data()")
-  #   df <- loadData()
-  #   print(paste("max date: ",(df %>% summarize(max.day = max(day)))[[1]]))
-  # })
-  
   #--------------------------------------------------------------
   # definition of data functions to be used inside server only!
   #--------------------------------------------------------------
-  # df        <- reactive({
-  #   if(input$date.snapshot < "2020-01-22") {message("Date must be after 2020-01-21")}
-  #   return(df)
-  # })
+
+  df.input <- reactive({
+    dummy <- input$load.data
+    df <- loadData()
+    return(df)
+  })
+  
   df.active <- reactive({
-    return(df %>% 
+    return(df.input() %>% 
              dplyr::filter(country.iso %in% 
                              input$countryId)
-           )
+    )
   })
   df.world <- reactive({
     cat("--------------> df.world()\n")
-    print(paste("max date: ",(df %>% summarize(max.day = max(day)))[[1]]))
-    df.tmp <- df              %>% 
+    print(paste("max date: ",(df.input() %>% summarize(max.day = max(day)))[[1]]))
+    df.tmp <- df.input()      %>% 
                 group_by(day) %>% 
                 summarize(cases      = sum(cases),
                           active     = sum(active, na.rm = TRUE),
@@ -106,14 +103,14 @@ server <- function(input, output) {
   df.day <- reactive({
     # return( df %>% group_by(charcode)  %>% dplyr::filter(day == input$date.snapshot))
     dummy <- input$load.data
-    return( df %>% dplyr::filter(day == input$date.snapshot))
+    return( df.input() %>% dplyr::filter(day == input$date.snapshot))
   })
   
   world.cases <- function(sum.attribute, date = input$date.snapshot) {
     dummy <- input$load.data
     
     return(
-      df %>% 
+      df.input() %>% 
         group_by(day) %>% 
         select(c("day", sum.attribute)) %>%
         rename(cases = sum.attribute)   %>% 
@@ -131,7 +128,7 @@ server <- function(input, output) {
   
   generateActive <- function() {
   # temporary!!!!!!
-    ncol <- 3
+    ncol <- 1
     
     if(input$data.selected == "absolute cases") {
       gg <- df.active() %>% ggplot(aes(x=day)) +
@@ -181,7 +178,9 @@ server <- function(input, output) {
     cat("---------------------------> generateWorldActive()\n")
     print(paste("max date: ",(df.world() %>% summarize(max.day = max(day)))[[1]]))
     
-    gg <- df.world() %>% ggplot(aes(x=day)) +
+    gg <- df.world() %>% 
+      dplyr::filter(day >= "2020-02-01")      %>%
+      ggplot(aes(x=day)) +
       geom_area(aes(y = cases,  fill = "recovered")) +
       geom_area(aes(y = active, fill = "active"))    +
       geom_area(aes(y = deaths, fill = "death"))     +
@@ -192,14 +191,11 @@ server <- function(input, output) {
       scale_fill_manual(name="Cumulated Cases (total numbers)",
                         values = c("recovered"="#00ba38",
                                    "active"="#f8766d",
-                                   "death"="dark grey"),
-                        labels = c("cum. deaths", 
-                                   "cum. recovered cases",
-                                   "cum. cases"))  # line color
+                                   "death"="dark grey"))  # line color
   }
   
   generateWorldIncidents <- function() {
-    gg <- df %>% 
+    gg <- df.input() %>% 
       group_by(day)                           %>%
       dplyr::filter(day >= "2020-02-01")      %>%
       summarize(
@@ -231,57 +227,44 @@ server <- function(input, output) {
   }
   
   generateCountriesActive <- function(){
-    gg <- df.day()                                                     %>% 
-      # dplyr::filter(charcode %in% coi)                                    %>%
-      # ungroup(charcode)                                                   %>%
-      top_n(20, cases)                                                     %>%
+    gg <- df.day()                                              %>% 
+      top_n(20, cases)                                          %>%
+      # Definition of plot
       ggplot(aes(reorder(country.iso, cases), cases)) + 
       geom_bar(stat="identity", fill = "#f8766d")               +
       coord_flip()                            +
-      geom_text(aes( y     = cases, 
-                     label = paste(
-                       format(round(cases/1000,0), big.mark=".", decimal.mark=","),
-                       "k")
-      ), 
-      hjust = "top", 
-      check_overlap = TRUE,
-      color = "black")              +
-      labs( x = "Land", 
+      geom_text_repel(aes( y     = cases, 
+                           label = format(cases, big.mark = ".", decimal.mark = ",")), 
+                      hjust = "top",
+                      direction = "x",
+                      color = "black")                +
+      labs( x = "Land",
             y = "Anzahl Erkrankte")
+    
     return(gg)
   } 
   
   generateCountriesIncidents <- function(){
-    gg <- df.day()                                                     %>% 
-      # dplyr::filter(charcode %in% coi)                                    %>%
-      mutate(Rsum = cases/population*100000)               %>% 
+    gg <- df.day()                                              %>% 
+      mutate(Rsum = cases/population*100000)                    %>% 
       select(c(charcode, country.iso, Rsum, cases, population)) %>% 
-      # ungroup(charcode)                                                   %>%
-      top_n(20, Rsum)                                                     %>%
-      ggplot(aes(reorder(country.iso, Rsum), Rsum)) + 
-      geom_bar(stat="identity")               +
+      top_n(20, Rsum)                                           %>%
+      # Definition of plot
+      ggplot(aes(reorder(country.iso, Rsum), Rsum))   + 
+      geom_bar(stat="identity", fill = "#f8766d")               +
       coord_flip()                            +
-      geom_text(aes( y     = Rsum-100, 
-                     label = round(Rsum,0)), 
-                color = "white")              +
+      geom_text_repel(aes( y     = Rsum, 
+                           label = round(Rsum,0)), 
+                      hjust = "bottom",
+                      direction = "x",
+                      color = "black")                +
       labs( x = "Land", 
             y = "Anzahl Erkrankte pro 100.000 Einwohner")
+    
     return(gg)
   } 
   
   
-  observeEvent(input$load.data, {
-    cat("---------> Event load.data")
-    countries <<- loadCountries()                 # <<- : load in .GlobalEnv
-    save(countries, file = "data//countries.rda")
-
-    #load data for list of countries
-    df <<- loadData()                             # <<- : load in .GlobalEnv
-    print(paste("max date: ",(df %>% summarize(max.day = max(day)))[[1]]))
-    save(df, file = "data//cases.rda")
-  })
-  
-  # day <- as.Date("2020-05-28")  
   day <- reactive({return(input$date.snapshot)})
   
 #---------------------------------------
@@ -332,7 +315,7 @@ server <- function(input, output) {
   
   output$world.incidents <- renderPlot({
     cat("-----------------> renderPlot()\n")
-    print(paste("max date: ",(df %>% summarize(max.day = max(day)))[[1]]))
+    print(paste("max date: ",(df.input() %>% summarize(max.day = max(day)))[[1]]))
     gg <- generateWorldIncidents()
     gg
   })
