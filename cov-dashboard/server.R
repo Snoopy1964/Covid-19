@@ -61,9 +61,9 @@ source("01_helper_func_data.R")
 #   }
 # }
 cat("---> before loading of cases.rda\n")
-# load("data//cases.rda", .GlobalEnv)
+load("data//cases.rda", .GlobalEnv)
 # to reproduce error during reload, use old data
-load("data//cases2020-06-02.rda", .GlobalEnv)
+# load("data//cases2020-06-02.rda", .GlobalEnv)
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
