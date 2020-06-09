@@ -26,9 +26,9 @@ library(DT)
 #-----------------------------------------------------
 # initialization
 #-----------------------------------------------------
-cat("---------------------> Initialization Server.R\n")
-print(environment())
-print(getwd())
+cat("---> Initialization Server.R\n")
+# print(environment())
+# print(getwd())
 
 
 # load API key
@@ -60,23 +60,30 @@ source("01_helper_func_data.R")
 #     return(df)
 #   }
 # }
-print(getwd())
-load("data//cases.rda", .GlobalEnv)
-print( parent.frame())
+cat("---> before loading of cases.rda\n")
+# load("data//cases.rda", .GlobalEnv)
+# to reproduce error during reload, use old data
+load("data//cases2020-06-02.rda", .GlobalEnv)
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
   # df <- load("data//cases.rda")
-  cat("---------------------> server()\n")
-  load.data <- eventReactive(input$load.data, {
-    cat("hallo world!")
-    df
-  })
+  cat("------> server()\n")
   
-  # source("10_server_data.R")
+  
+  # load.data <- eventReactive(input$load.data, {
+  #   cat("---------> load.data()")
+  #   df <- loadData()
+  #   print(paste("max date: ",(df %>% summarize(max.day = max(day)))[[1]]))
+  # })
+  
   #--------------------------------------------------------------
   # definition of data functions to be used inside server only!
   #--------------------------------------------------------------
+  # df        <- reactive({
+  #   if(input$date.snapshot < "2020-01-22") {message("Date must be after 2020-01-21")}
+  #   return(df)
+  # })
   df.active <- reactive({
     return(df %>% 
              dplyr::filter(country.iso %in% 
@@ -84,16 +91,21 @@ server <- function(input, output) {
            )
   })
   df.world <- reactive({
-    return(df              %>% 
-             group_by(day) %>% 
-             summarize(cases      = sum(cases),
-                       active     = sum(active, na.rm = TRUE),
-                       deaths     = sum(deaths, na.rm = TRUE),
-                       population = sum(population, na.rm = TRUE))
-    )
+    cat("--------------> df.world()\n")
+    print(paste("max date: ",(df %>% summarize(max.day = max(day)))[[1]]))
+    df.tmp <- df              %>% 
+                group_by(day) %>% 
+                summarize(cases      = sum(cases),
+                          active     = sum(active, na.rm = TRUE),
+                          deaths     = sum(deaths, na.rm = TRUE),
+                          population = sum(population, na.rm = TRUE))
+    print(df.tmp %>% dplyr::filter(day == "2020-06-02"))
+    cat("--------------> end of df.world()\n")
+    return(df.tmp)
   })
   df.day <- reactive({
     # return( df %>% group_by(charcode)  %>% dplyr::filter(day == input$date.snapshot))
+    dummy <- input$load.data
     return( df %>% dplyr::filter(day == input$date.snapshot))
   })
   
@@ -114,7 +126,7 @@ server <- function(input, output) {
   
   # source("20_server_output.R")
   #----------------------------------------------------------
-  # generate plotes to be used inside server output
+  # generate plots to be used inside server output
   #----------------------------------------------------------
   
   generateActive <- function() {
@@ -166,7 +178,9 @@ server <- function(input, output) {
   }
   
   generateWorldActive <- function() {
-    print(df.world())
+    cat("---------------------------> generateWorldActive()\n")
+    print(paste("max date: ",(df.world() %>% summarize(max.day = max(day)))[[1]]))
+    
     gg <- df.world() %>% ggplot(aes(x=day)) +
       geom_area(aes(y = cases,  fill = "recovered")) +
       geom_area(aes(y = active, fill = "active"))    +
@@ -214,24 +228,6 @@ server <- function(input, output) {
                                      "new cases per day"))  # line color
     )
     
-    # gg <- df.world() %>% 
-    #   mutate(
-    #     incidents.total  = cases/population*100000,
-    #     incidents.active = active/population*100000,
-    #     mortality        = deaths/population*100000
-    #   ) %>%
-    #   ggplot(aes(x=day)) +
-    #   geom_area(aes(y = incidents.total,  fill = "recovered")) +
-    #   geom_area(aes(y = incidents.active, fill = "active"))    +
-    #   geom_area(aes(y = mortality, fill = "death"))     +
-    #   theme(
-    #     legend.position = c(0.02, 0.98),
-    #     legend.justification = c("left", "top")
-    #   ) +
-    #   scale_fill_manual(name="cumulated incidences\nper 100.000 residents",
-    #                     values = c("recovered"="#00ba38",
-    #                                "active"="#f8766d",
-    #                                "death"="dark grey"))  # line color
   }
   
   generateCountriesActive <- function(){
@@ -275,14 +271,13 @@ server <- function(input, output) {
   
   
   observeEvent(input$load.data, {
-    cat("hallo world load.data!\n")
-    cat(getwd())
-    # load countries
+    cat("---------> Event load.data")
     countries <<- loadCountries()                 # <<- : load in .GlobalEnv
     save(countries, file = "data//countries.rda")
-    
+
     #load data for list of countries
     df <<- loadData()                             # <<- : load in .GlobalEnv
+    print(paste("max date: ",(df %>% summarize(max.day = max(day)))[[1]]))
     save(df, file = "data//cases.rda")
   })
   
@@ -294,8 +289,8 @@ server <- function(input, output) {
 #---------------------------------------
   output$world.total.cases <- renderValueBox(
     valueBox(
-      h2("total cases"),
-      h3(format(world.cases("cases", day())[[2]], big.mark=".", decimal.mark=",")),
+      h4("total cases"),
+      h4(format(world.cases("cases", day())[[2]], big.mark=".", decimal.mark=",")),
       "as.character(input$date.snapshot)",
       icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
       color = "blue"
@@ -304,8 +299,8 @@ server <- function(input, output) {
   
   output$world.active.cases <- renderValueBox(
     valueBox(
-      h2("active cases"),
-      h3(format(world.cases("active", day())[[2]], big.mark=".", decimal.mark=",")),
+      h4("active cases"),
+      h4(format(world.cases("active", day())[[2]], big.mark=".", decimal.mark=",")),
       icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
       color = "red"
     )
@@ -313,8 +308,8 @@ server <- function(input, output) {
   
   output$world.recovered.cases <- renderValueBox(
     valueBox(
-      h2("recovered cases"),
-      h3(format(world.cases("recovered", day())[[2]], big.mark=".", decimal.mark=",")),
+      h4("recovered cases"),
+      h4(format(world.cases("recovered", day())[[2]], big.mark=".", decimal.mark=",")),
       icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
       color = "green"
     )
@@ -322,8 +317,8 @@ server <- function(input, output) {
   
   output$world.death <- renderValueBox(
     valueBox(
-      h2("total deaths"),
-      h3(format(world.cases("deaths", day())[[2]], big.mark=".", decimal.mark=",")),
+      h4("total deaths"),
+      h4(format(world.cases("deaths", day())[[2]], big.mark=".", decimal.mark=",")),
       icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
       color = "black"
     )
@@ -336,7 +331,8 @@ server <- function(input, output) {
   })
   
   output$world.incidents <- renderPlot({
-    print(df)
+    cat("-----------------> renderPlot()\n")
+    print(paste("max date: ",(df %>% summarize(max.day = max(day)))[[1]]))
     gg <- generateWorldIncidents()
     gg
   })
@@ -356,6 +352,7 @@ server <- function(input, output) {
 #---------------------------------------
   output$cases.countries <- DT::renderDataTable({
     df.tmp <- df.day() %>% select(country.iso, cases, active, recovered, deaths, population)
+    cat("----------------------> DT::renderDataTable()")
     print(df.tmp)
     DT::datatable(
       df.tmp, 

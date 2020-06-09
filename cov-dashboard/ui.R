@@ -26,9 +26,7 @@ library("wppExplorer")
 #-----------------------------------------------------
 # initialization
 #-----------------------------------------------------
-cat("---------------------> Initialization Ui.R\n")
-print(environment())
-print(getwd())
+cat("---> Initialization Ui.R\n")
 
 
 # load API key
@@ -58,8 +56,6 @@ map.country.charcode <- function(ccc) {
 
 
 
-#df <<- dataInput()
-
 #-----------------------------------------------------
 # setup global variables
 #-----------------------------------------------------
@@ -78,7 +74,7 @@ header  <- dashboardHeader(title = "Snoopy's Covid 19 dashboard")
 
 sidebar <-dashboardSidebar(
     sidebarMenu(
-      menuItem("World Overview"   , tabName = "dashboard", icon = icon("dashboard")),
+      menuItem("World Overview"   , tabName = "world_dashboard", icon = icon("dashboard")),
       menuItem("Statistics (day)", tabName = "statistics"    , icon = icon("th")),
       menuItem("Active Cases", tabName = "cases"    , icon = icon("th")),
       actionButton("load.data", "Reload data", icon = icon("refresh")),
@@ -92,8 +88,10 @@ sidebar <-dashboardSidebar(
 
 body <- dashboardBody(
     tabItems(
+      # Tab: world data
       tabItem(
-        tabName = "dashboard",
+        tabName = "world_dashboard",
+        
         fluidRow(
           valueBoxOutput("world.total.cases", width=3),
           valueBoxOutput("world.active.cases", width=3),
