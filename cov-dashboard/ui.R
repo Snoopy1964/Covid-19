@@ -158,6 +158,10 @@ body <- dashboardBody(
           #   height = 500,
           box(
             width = 9,
+            sliderInput("date.range", "date range",value = as.Date("2020-03-01"), min=as.Date("2020-01-22"), max=today()-1)
+          ),
+          box(
+            width = 9,
             plotOutput("active", 
                        height = "800px", 
                        click  = clickOpts("active_click"),

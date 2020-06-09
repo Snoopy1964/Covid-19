@@ -136,13 +136,15 @@ server <- function(input, output) {
         geom_area(aes(y = active + deaths, fill = "active"))    +
         geom_area(aes(y = deaths,          fill = "death"))     +
         theme(
-          legend.position = "top",
+          legend.position = c(0.02, 0.98),
+          # legend.position = "top",
           legend.justification = c("left", "top")
         ) +
         facet_wrap(
           ~country.iso,
           ncol = ncol
         ) +
+        xlim(input$date.range, today()) +
         scale_fill_manual(name="Cases (total number)",
                           values = c("recovered"="#00ba38",
                                      "active"="#f8766d",
@@ -155,15 +157,15 @@ server <- function(input, output) {
         geom_area(aes(y = (active + deaths)/population*100000, fill = "active"))    +
         geom_area(aes(y = deaths/population*100000           , fill = "death"))     +
         theme(
-          # legend.position = c(0.02, 0.98),
-          legend.position = "top",
+          legend.position = c(0.02, 0.98),
+          # legend.position = "top",
           legend.justification = c("left", "top")
         ) +
         facet_wrap(
           ~country.iso,
           ncol = ncol
         ) +
-        # ylim(0, 700) +
+        xlim(input$date.range, today()) +
         scale_fill_manual(name="cumulated incidences per 100.000 residents",
                           values = c("recovered"="#00ba38",
                                      "active"="#f8766d",
@@ -417,8 +419,9 @@ server <- function(input, output) {
     # z-index is set so we are sure are tooltip will be on top
     
     style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
-                   "left:", left_px + 2, "px; top:", top_px + 2, "px;")
-    
+                    "left:", hover$coords_img$x-10, "px; top:", hover$range$top, "px;")
+    # "left:", left_px + 2, "px; top:", top_px + 2, "px;")
+  
     
     
     # actual tooltip created as wellPanel
