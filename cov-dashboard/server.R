@@ -77,7 +77,14 @@ server <- function(input, output) {
 
   df.input <- reactive({
     dummy <- input$load.data
-    df <- loadData()
+    # cat("------------> load data from file\n")
+    load("data/cases.rda")
+    last.day <- last.day <- as.Date((df %>% summarize(day = max(day)))[[1]])
+    if (last.day < today()) {
+      df <- loadData()
+      save(df, file = "data/cases.rda")
+      # cat("------------> data saved to file\n")
+    }
     return(df)
   })
   
