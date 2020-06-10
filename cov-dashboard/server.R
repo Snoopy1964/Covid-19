@@ -60,15 +60,12 @@ if (file.exists(".api_key.R")) {
 #     return(df)
 #   }
 # }
-cat("---> before loading of cases.rda\n")
-# load("data//cases.rda", .GlobalEnv)
-# to reproduce error during reload, use old data
-# load("data//cases2020-06-02.rda", .GlobalEnv)
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
   # df <- load("data//cases.rda")
-  cat("------> server()\n")
+  debug.on <<- options("Debug.Dashboard")[[1]]      # <<- loads in .GlobalEnv
+  cat("------> initialize server(): Debugging Mode:", debug.on, "\n")
   
   
   #--------------------------------------------------------------
@@ -77,13 +74,13 @@ server <- function(input, output) {
 
   df.input <- reactive({
     dummy <- input$load.data
-    # cat("------------> load data from file\n")
+    if(debug.on) cat("------------> load data from file\n")
     load("data/cases.rda")
     last.day <- last.day <- as.Date((df %>% summarize(day = max(day)))[[1]])
     if (last.day < today()) {
       df <- loadData()
       save(df, file = "data/cases.rda")
-      # cat("------------> data saved to file\n")
+      if(debug.on) cat("------------> data saved to file\n")
     }
     return(df)
   })
@@ -95,20 +92,23 @@ server <- function(input, output) {
     )
   })
   df.world <- reactive({
-    cat("--------------> df.world()\n")
-    print(paste("max date: ",(df.input() %>% summarize(max.day = max(day)))[[1]]))
+    if(debug.on) {
+      cat("--------------> df.world()\n")
+      print(paste("max date: ",(df.input() %>% summarize(max.day = max(day)))[[1]]))
+    }
     df.tmp <- df.input()      %>% 
                 group_by(day) %>% 
                 summarize(cases      = sum(cases),
                           active     = sum(active, na.rm = TRUE),
                           deaths     = sum(deaths, na.rm = TRUE),
                           population = sum(population, na.rm = TRUE))
-    print(df.tmp %>% dplyr::filter(day == "2020-06-02"))
-    cat("--------------> end of df.world()\n")
+    if(debug.on) {
+      print(df.tmp %>% dplyr::filter(day == "2020-06-02"))
+      cat("--------------> end of df.world()\n")
+    }
     return(df.tmp)
   })
   df.day <- reactive({
-    # return( df %>% group_by(charcode)  %>% dplyr::filter(day == input$date.snapshot))
     dummy <- input$load.data
     return( df.input() %>% dplyr::filter(day == input$date.snapshot))
   })
@@ -135,7 +135,7 @@ server <- function(input, output) {
   
   generateActive <- function() {
   # temporary!!!!!!
-    ncol <- 1
+    ncol <- 2
     
     if(input$data.selected == "absolute cases") {
       gg <- df.active() %>% ggplot(aes(x=day)) +
@@ -143,8 +143,8 @@ server <- function(input, output) {
         geom_area(aes(y = active + deaths, fill = "active"))    +
         geom_area(aes(y = deaths,          fill = "death"))     +
         theme(
-          legend.position = c(0.02, 0.98),
-          # legend.position = "top",
+          # legend.position = c(0.02, 0.98),
+          legend.position = "left",
           legend.justification = c("left", "top")
         ) +
         facet_wrap(
@@ -184,8 +184,10 @@ server <- function(input, output) {
   }
   
   generateWorldActive <- function() {
-    cat("---------------------------> generateWorldActive()\n")
-    print(paste("max date: ",(df.world() %>% summarize(max.day = max(day)))[[1]]))
+    if(debug.on) {
+      cat("---------------------------> generateWorldActive()\n")
+      print(paste("max date: ",(df.world() %>% summarize(max.day = max(day)))[[1]]))
+    }
     
     gg <- df.world() %>% 
       dplyr::filter(day >= "2020-02-01")      %>%
@@ -236,39 +238,51 @@ server <- function(input, output) {
   }
   
   generateCountriesActive <- function(){
+    title.text <- paste("Total Number of cases at ", input$date.snapshot)
     gg <- df.day()                                              %>% 
       top_n(20, cases)                                          %>%
       # Definition of plot
       ggplot(aes(reorder(country.iso, cases), cases)) + 
-      geom_bar(stat="identity", fill = "#f8766d")               +
-      coord_flip()                            +
+      geom_bar(stat="identity", fill = "#f8766d")     +
+      coord_flip()                                    +
       geom_text_repel(aes( y     = cases, 
                            label = format(cases, big.mark = ".", decimal.mark = ",")), 
                       hjust = "top",
                       direction = "x",
                       color = "black")                +
       labs( x = "Land",
-            y = "Anzahl Erkrankte")
+            y = "Anzahl Erkrankte",
+            title = title.text)                       +
+      theme(
+        plot.title = element_text(hjust = 0.0, size = 12, face = "bold")
+      )
     
     return(gg)
   } 
   
   generateCountriesIncidents <- function(){
+    title.text <- paste("Incidence Rate per 100.000 people at ", input$date.snapshot)
     gg <- df.day()                                              %>% 
       mutate(Rsum = cases/population*100000)                    %>% 
       select(c(charcode, country.iso, Rsum, cases, population)) %>% 
       top_n(20, Rsum)                                           %>%
       # Definition of plot
       ggplot(aes(reorder(country.iso, Rsum), Rsum))   + 
-      geom_bar(stat="identity", fill = "#f8766d")               +
-      coord_flip()                            +
+      geom_bar(stat="identity", fill = "#f8766d")     +
+      coord_flip()                                    +
       geom_text_repel(aes( y     = Rsum, 
-                           label = round(Rsum,0)), 
+                           label = format(round(Rsum,0), big.mark = ".", decimal.mark = ",")), 
                       hjust = "bottom",
                       direction = "x",
                       color = "black")                +
-      labs( x = "Land", 
-            y = "Anzahl Erkrankte pro 100.000 Einwohner")
+      labs( title = title.text,
+            x = "Land", 
+            y = "Anzahl Erkrankte pro 100.000 Einwohner"
+      )                                               +
+      theme(
+        plot.title = element_text(hjust = 0.0, size = 12, face = "bold")
+        
+      )
     
     return(gg)
   } 
@@ -323,8 +337,10 @@ server <- function(input, output) {
   })
   
   output$world.incidents <- renderPlot({
-    cat("-----------------> renderPlot()\n")
-    print(paste("max date: ",(df.input() %>% summarize(max.day = max(day)))[[1]]))
+    if(debug.on) {
+      cat("-----------------> renderPlot()\n")
+      print(paste("max date: ",(df.input() %>% summarize(max.day = max(day)))[[1]]))
+    }
     gg <- generateWorldIncidents()
     gg
   })

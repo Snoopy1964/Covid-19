@@ -43,7 +43,7 @@ if (exists("x.rapiapi.key")) {
 # setting some globaloptions()
 #------------------------------
 options(dplyr.summarise.inform = FALSE) # get rid of annoying messages from summarise()
-
+options("Debug.Dashboard" = TRUE)       # enable app specific debugging
 
 loadCountries <- function(source = "jhu") {
   # load iso data for countries
