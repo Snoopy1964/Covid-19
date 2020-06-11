@@ -113,6 +113,55 @@ gg +
                     values = c("recovered"="#00ba38", "total"="#f8766d", "death"="dark grey"))  # line color
 
   
+#-------------------------------------------------------------
+# CI an einem Stichtag, die top 20 Länder
+#-------------------------------------------------------------
+debug.on <- TRUE
+df.input <- function() {
+  if(debug.on) cat("------------> load data from file\n")
+  load("data/cases.rda")
+  last.day <- last.day <- as.Date((df %>% summarize(day = max(day)))[[1]])
+  if (last.day < today()-1) {
+    df <- loadData()
+    save(df, file = "data/cases.rda")
+    if(debug.on) cat("------------> data saved to file\n")
+  }
+  return(df)
+}
 
 
+df.day <- function(){
+  return( df.input() %>% dplyr::filter(day == today()-1))
+  
+}
+
+generateCountriesIncidents <- function(){
+  title.text <- paste("Cumulated Incidences on ", today()-1)
+  gg <- df.day()                                              %>% 
+    mutate(Rsum = cases/population*100000)                    %>% 
+    select(c(charcode, country.iso, Rsum, cases, population)) %>% 
+    # Definition of plot
+    top_n(20, Rsum)                                           %>%
+    ggplot(aes(reorder(country.iso, Rsum), Rsum))   + 
+    geom_col(fill = "#f8766d")     +
+    coord_flip()                                    +
+    # wrap axis.text for long country names like "Holy See (Vatican City State)"
+    aes(reorder(stringr::str_wrap(country.iso, 20), Rsum), Rsum)              +
+    # add numbers to the bars
+    geom_text_repel(aes( y     = Rsum, 
+                         label = format(round(Rsum,0), big.mark = ".", decimal.mark = ",")), 
+                    hjust = "bottom",
+                    direction = "x",
+                    color = "black")                +
+    labs( title = title.text,
+          x = NULL, 
+          y = "Anzahl Erkrankte pro 100.000 Einwohner"
+    )                                               +
+    theme(
+      plot.title = element_text(hjust = 0.0, size = 12, face = "bold")
+      
+    )
+    
+  return(gg)
+} 
 
