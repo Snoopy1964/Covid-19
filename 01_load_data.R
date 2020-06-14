@@ -29,7 +29,7 @@ countries <- loadCountries("jhu")
 #----------------------------------------------
 # (2) initial load - only if there is no data
 #----------------------------------------------
-df <- loadData("jhu")
+ds <- loadData("jhu")
 
 #----------------------------------------------
 # ( ) clean up variables, tibbles, etc...

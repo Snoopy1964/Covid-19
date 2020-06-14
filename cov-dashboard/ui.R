@@ -18,6 +18,7 @@ library("lubridate")
 library("tidyverse")
 library("readxl")
 library("ggmap")
+library("ggpubr")
 # library("ggplotgui"
 library("ggrepel")
 # library("geojsonio")
@@ -73,112 +74,112 @@ header  <- dashboardHeader(title = "Snoopy's Covid 19 dashboard")
 #--------------------
 
 sidebar <-dashboardSidebar(
-    sidebarMenu(
-      menuItem("World Overview"   , tabName = "world_dashboard", icon = icon("dashboard")),
-      menuItem("Statistics (day)", tabName = "statistics"    , icon = icon("th")),
-      menuItem("Active Cases", tabName = "cases"    , icon = icon("th")),
-      actionButton("load.data", "Reload data", icon = icon("refresh")),
-      dateInput("date.snapshot", h3("Date input"), value = today()-1)
-      #dateInput("date.snapshot", h3("Date input"), value = as.Date("2020-05-30"))
-    )
+  sidebarMenu(
+    menuItem("World Overview"   , tabName = "world_dashboard", icon = icon("dashboard")),
+    # menuItem("World Overview 2"   , tabName = "world_dashboard_2", icon = icon("dashboard")),
+    menuItem("Statistics (day)", tabName = "statistics"    , icon = icon("th")),
+    menuItem(
+      "Charts", tabName = "charts", icon=icon("bar-chart-o"), startExpand = TRUE,
+      menuSubItem("Cases, Incidences & Deaths", tabName = "cases"),
+      menuSubItem("Compare Countries",          tabName = "compare", icon = icon("th"))
+    ),
+    actionButton("load.data", "Reload data", icon = icon("refresh")),
+    dateInput("date.snapshot", h3("Date input"), value = today()-1)
+    #dateInput("date.snapshot", h3("Date input"), value = as.Date("2020-05-30"))
   )
+)
 #--------------------
 # body of dashboard
 #--------------------
 
 body <- dashboardBody(
-    tabItems(
-      # Tab: world data
-      tabItem(
-        tabName = "world_dashboard",
-        
-        fluidRow(
-          valueBoxOutput("world.total.cases", width=3),
-          valueBoxOutput("world.active.cases", width=3),
-          valueBoxOutput("world.recovered.cases", width=3),
-          valueBoxOutput("world.death", width=3)
+  tabItems(
+    # Tab: world data
+    tabItem(
+      tabName = "world_dashboard",
+
+      fluidRow(
+        valueBoxOutput("world.total.cases", width=3),
+        valueBoxOutput("world.active.cases", width=3),
+        valueBoxOutput("world.recovered.cases", width=3),
+        valueBoxOutput("world.death", width=3)
+      ),
+
+      fluidRow(
+        tabBox(
+          id = "tabBox.world",
+          side = "left",
+          width = 12,
+          selected = "Cases since Feb. 2020",
+          tabPanel("Cases since Feb. 2020",            plotOutput("summary.charts.world",    height = 600)),
+          tabPanel("Top 20 Countries at Selected Day", plotOutput("summary.countries.top20", height = 800))
         ),
-        fluidRow(
+      ),
+    ),
+    # First tab content
+    tabItem(
+      tabName = "statistics",
+      titlePanel("Numbers per day"),
+      fluidRow(
+        DT::dataTableOutput("cases.countries")
+      )
+    ),
+    tabItem(
+      tabName = "cases",
+      titlePanel("Compare countries"),
+      # Boxes need to be put in a row (or column)
+      fluidRow(
+        column(
+          width  = 12,
+          height = 200,
+          # width  = 500,
           box(
-            plotOutput("world.active")
+            # title = "Select countries to compare",
+            selectInput("countryId" , 
+                        "Select countries to compare", coi, 
+                        selected = c("Germany", 
+                                     "United States",
+                                     "Russian Federation",
+                                     "United Kingdom"), 
+                        multiple = TRUE, 
+                        width = "auto")
           ),
           box(
-            plotOutput("world.incidents")
-          )
-        ),
-        fluidRow(
-          box(
-            plotOutput("countries.active")
-          ),
-          box(
-            plotOutput("countries.incidents")
+            # title = "Input Data",
+            radioButtons(
+              "data.selected",
+              "Input Data", c("normalized cases per 100.000 residents", "absolute cases"),
+              selected = "normalized cases per 100.000 residents")
           )
         )
       ),
-      # First tab content
-      tabItem(
-        tabName = "statistics",
-        titlePanel("Numbers per day"),
-        fluidRow(
-          DT::dataTableOutput("cases.countries")
-        )
-      ),
-      tabItem(
-        tabName = "cases",
-        titlePanel("Compare countries"),
-        # Boxes need to be put in a row (or column)
-        fluidRow(
-          column(
-            width  = 12,
-            height = 200,
-            # width  = 500,
-            box(
-              # title = "Select countries to compare",
-              selectInput("countryId" , 
-                          "Select countries to compare", coi, 
-                          selected = c("Germany", 
-                                       "United States",
-                                       "Russian Federation",
-                                       "United Kingdom"), 
-                          multiple = TRUE, 
-                          width = "auto")
-            ),
-            box(
-              # title = "Input Data",
-              radioButtons(
-                "data.selected",
-                "Input Data", c("normalized cases per 100.000 residents", "absolute cases"),
-                selected = "normalized cases per 100.000 residents")
-            )
-          )
+      fluidRow(
+        # column(
+        #   width  = 12,
+        #   height = 500,
+        box(
+          width = 9,
+          sliderInput("date.range", "date range",value = as.Date("2020-03-01"), min=as.Date("2020-01-22"), max=today()-1)
         ),
-        fluidRow(
-          # column(
-          #   width  = 12,
-          #   height = 500,
-          box(
-            width = 9,
-            sliderInput("date.range", "date range",value = as.Date("2020-03-01"), min=as.Date("2020-01-22"), max=today()-1)
+        box(
+          width = 9,
+          plotOutput("active", 
+                     height = "800px", 
+                     click  = clickOpts("active_click"),
+                     hover  = hoverOpts("active_hover", delay = 100, delayType = "debounce")
           ),
-          box(
-            width = 9,
-            plotOutput("active", 
-                       height = "800px", 
-                       click  = clickOpts("active_click"),
-                       hover  = hoverOpts("active_hover", delay = 100, delayType = "debounce")
-            ),
-            uiOutput("hover_info")
-          ),
-          box(
-            width = 3,
-            verbatimTextOutput("click_info")
-            # verbatimTextOutput("hover_info")
-            #   )
-          )
+          uiOutput("hover_info")
+        ),
+        box(
+          width = 3,
+          verbatimTextOutput("click_info")
+          # verbatimTextOutput("hover_info")
+          #   )
         )
       )
     )
   )
+)
 
 #--------------------
 # put UI together 

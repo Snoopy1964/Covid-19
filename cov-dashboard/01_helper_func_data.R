@@ -33,6 +33,8 @@ library("ggrepel")
 #library("geojsonio")
 library("wppExplorer")
 library("scales")
+library("ggpubr")
+library("patchwork")
 
 cat("------> helper functions\n")
 if (exists("x.rapiapi.key")) {

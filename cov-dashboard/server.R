@@ -132,6 +132,142 @@ server <- function(input, output) {
   #----------------------------------------------------------
   # generate plots to be used inside server output
   #----------------------------------------------------------
+  generateChartsWorld <- function(ma = -0.02){
+    start.date <- as.Date("2020-02-01")
+    ds.tmp <- df.world()               %>%
+      dplyr::filter(day >= start.date)  
+    
+    norm.factor <- 100000/as.numeric(ds.tmp %>% summarize(population = max(population)))
+    # World summiert
+    gg1 <- ds.tmp                                           %>% 
+      ggplot(aes(x=day))                                     +
+      geom_area(aes(y = cases,          fill = "active"))    +
+      geom_area(aes(y = cases - active, fill = "recovered")) +
+      geom_area(aes(y = deaths,         fill = "death"))     +
+      geom_line(aes(y=cases), color = "blue", size = 1)      +
+      annotate(
+        geom  = "text",
+        x     = mean(range(ds.tmp$day)),
+        y     = range(ds.tmp$cases)[2],
+        label = "Cases (total number)",
+        hjust = 0.5,
+        vjust = 1,
+        size  = 5
+      )                                                      +
+      theme(
+        legend.position = c(0.01, 0.96),
+        legend.justification = c("left", "top"),
+        plot.margin          = unit(c(0,ma,ma,0), "cm"),
+        axis.text.x          = element_blank(),
+        axis.ticks.x         = element_blank()
+      ) +
+      labs( x     = NULL,
+            y     = NULL,
+            title = NULL)                   +
+      scale_y_continuous(
+        labels = label_number_si(),
+        sec.axis = sec_axis(~ . * norm.factor, name = "per 100k", labels = label_number_si())
+      )                                                      +
+      scale_fill_manual(
+        name=NULL,
+        values = c("recovered"="#00ba38",
+                   "active"="#f8766d",
+                   "death"="grey30")
+      )  
+    
+    gg2 <- ds.tmp                                  %>% 
+      dplyr::filter(day >= start.date)             %>%
+      mutate(mortality = deaths/cases)             %>% 
+      ggplot(aes(x = day))                          + 
+      geom_area(aes(y=mortality, fill = "death"))   + 
+      geom_smooth(aes(y=mortality), span = 0.1)     + 
+      annotate(
+        geom  = "text",
+        x     = mean(range(ds.tmp$day)),
+        y     = 0.16,
+        label = "Mortality (Deaths/Cases) in %",
+        hjust = 0.5,
+        vjust = 1,
+        size  = 5
+      )                                                      +
+      theme(
+        legend.position = "none",
+        plot.margin     = unit(c(ma,ma,ma,0), "cm") ,
+        axis.text.x     = element_blank(),
+        axis.ticks.x    = element_blank()
+      )                                             +
+      labs( x     = NULL,
+            y     = NULL,
+            title = NULL
+      )                                             +
+      scale_y_continuous(
+        labels = label_percent(),
+        limits = c(0, 0.16),
+        sec.axis = sec_axis(
+          ~ . , 
+          name   = "Percent", 
+          labels = label_percent())
+      )                           +
+      scale_fill_manual(  name=NULL,
+                          values = c("death"="grey70"),
+                          labels = c("mortatlity")
+      )                                
+    
+    
+    # World summiert pro Tag
+    ds.tmp <- df.input() %>% 
+      group_by(day)                           %>%
+      dplyr::filter(day >= start.date)        %>%
+      summarize(
+        cases.day     = sum(cases.day),
+        active.day    = sum(active.day),
+        recovered.day = sum(recovered.day),
+        deaths.day    = sum(deaths.day),
+        mortality.day = deaths.day/cases.day
+      )          
+    
+    gg.data <- ds.tmp %>% 
+      ggplot(aes(x=day))                       +                 
+      theme(
+        legend.position = "none",
+        plot.margin     = unit(c(ma,ma,0,0), "cm"),
+      )                                        +
+      labs( x     = NULL,
+            y     = NULL,
+            title = NULL
+      )                                        +
+      scale_y_continuous(
+        labels  = label_number_si(),
+        sec.axis = sec_axis(
+          ~ . * norm.factor * 10, 
+          name   = "per 1 Mio.", 
+          labels = label_number_si())
+      )                           +
+      scale_fill_manual(  name=NULL,
+                          values = c("total"="#f8766d"),
+                          labels = c("new cases per day")
+      )
+    
+    
+    gg3 <- gg.data     +
+      geom_area(aes(y=cases.day,             fill = "total"),     stat="identity") +
+      geom_smooth(aes(y=cases.day), span = 0.1) +
+      annotate(
+        geom  = "text",
+        x     = mean(range(ds.tmp$day)),
+        y     = range(ds.tmp$cases.day)[2],
+        label = "New Cases per day",
+        hjust = 0.5,
+        vjust = 1,
+        size  = 5
+      )                                                                       
+    
+    gg4 <- gg.data +
+      geom_smooth(aes(y=cases.day))
+    
+    gg <- gg1 + gg2 + gg3 + plot_layout(nrow=3)
+    return(gg)
+  }
   
   generateActive <- function() {
   # temporary!!!!!!
@@ -197,7 +333,8 @@ server <- function(input, output) {
       geom_area(aes(y = deaths, fill = "death"))                               +
       theme(
         legend.position = c(0.02, 0.98),
-        legend.justification = c("left", "top")
+        legend.justification = c("left", "top"),
+        plot.margin = unit(c(1,1,1,2), "cm")
       ) +
       labs( x = NULL,
             y = NULL,
@@ -233,7 +370,8 @@ server <- function(input, output) {
         geom_area(aes(y=deaths.day,               fill = "death"),     stat="identity") +
         theme(
           legend.position = c(0.02, 0.98),
-          legend.justification = c("left", "top")
+          legend.justification = c("left", "top"),
+          plot.margin = unit(c(1,1,1,2), "cm")
         ) +
         labs( x = NULL,
               y = NULL,
@@ -252,7 +390,7 @@ server <- function(input, output) {
   }
   
   generateCountriesActive <- function(){
-    title.text <- paste("Cumulated Cases on", input$date.snapshot)
+    title.text <- paste("Anzahl Erkrankte pro Land am", input$date.snapshot, "Top 20)")
     gg <- df.day()                                              %>% 
       top_n(20, cases)                                          %>%
       # Definition of plot
@@ -270,7 +408,8 @@ server <- function(input, output) {
                       direction = "x",
                       color = "black")                +
       labs( x = NULL,
-            y = "Anzahl Erkrankte",
+            y = NULL,
+            # y = "Anzahl Erkrankte",
             title = title.text)                       +
       theme(
         plot.title   = element_text(hjust = 0.0, size = 12, face = "bold"),
@@ -282,7 +421,7 @@ server <- function(input, output) {
   } 
   
   generateCountriesIncidents <- function(){
-    title.text <- paste("Cumulated Incidences on", input$date.snapshot)
+    title.text <- paste("Anzahl Erkrankte pro 100.000 Einwohner pro Land am", input$date.snapshot, "Top 20)")
     gg <- df.day()                                              %>% 
       mutate(Rsum = cases/population*100000)                    %>% 
       select(c(charcode, country.iso, Rsum, cases, population)) %>% 
@@ -303,7 +442,8 @@ server <- function(input, output) {
                       color = "black")                +
       labs( title = title.text,
             x = NULL, 
-            y = "Anzahl Erkrankte pro 100.000 Einwohner"
+            y = NULL
+            # y = "Anzahl Erkrankte pro 100.000 Einwohner"
       )                                               +
       theme(
         plot.title   = element_text(hjust = 0.0, size = 12, face = "bold",),
@@ -356,31 +496,30 @@ server <- function(input, output) {
       color = "black"
     )
   )  
-  
-  output$world.active <- renderPlot({
-    gg <- generateWorldActive()
-    gg
-    # cat(str(input))
-  })
-  
-  output$world.incidents <- renderPlot({
-    if(debug.on) {
-      cat("-----------------> renderPlot()\n")
-      print(paste("max date: ",(df.input() %>% summarize(max.day = max(day)))[[1]]))
-    }
-    gg <- generateWorldIncidents()
-    gg
-  })
 
-  output$countries.active <- renderPlot({
-    gg <- generateCountriesActive()
-    gg
+  output$summary.charts.world <- renderPlot({
+    generateChartsWorld()
   })
-
-  output$countries.incidents <- renderPlot({
-    gg <- generateCountriesIncidents()
-    gg
+    
+  output$summary.world.active <- renderPlot({
+    ggarrange(
+      generateWorldActive(),
+      generateWorldIncidents(),
+      ncol = 1,
+      nrow = 2,
+      widths = c(1,1)
+    )
   })
+  output$summary.countries.top20 <- renderPlot({
+    ggarrange(
+      generateCountriesActive(),
+      generateCountriesIncidents(),
+      ncol = 2,
+      nrow = 2,
+      widths = c(1,1)
+    )
+  })
+  
 
 #---------------------------------------
 # Statistics
@@ -412,12 +551,6 @@ server <- function(input, output) {
     gg
   })
   
-  # output$click_info <- renderText({
-  #   paste("x=", input$active_click$x, "\ny=", input$active_click$y)
-  #   # nearPoints(df.active(), input$active_click, xvar="day", yvar="cases.total")
-  #   
-  # })
-  # 
   output$click_info <- renderPrint({
     if(is.null(input$active_click)) return(NULL)
     
@@ -430,18 +563,6 @@ server <- function(input, output) {
     cat("input$active_click:\n")
     str(input$active_click)
   })
-  
-  # output$hover_info <- renderPrint({
-  #   day.hover <- as.character(as.Date(as.numeric(input$active_hover$x), origin="1970-01-01"))
-  #   iso.hover <- as.character(input$active_hover$panelvar1)
-  #   df.tmp <- df.active() %>% dplyr::filter(day == day.hover & country.iso == iso.hover)
-  #   print(paste("Datum: ",day.hover, "\n"))
-  #   print(df.tmp)
-  #   cat("df.tmp: ", df.tmp$day, df.tmp$cases.total)
-  #   cat("input$active_hover:\n")
-  #   str(input$active_hover)
-  # })
-  
   
   output$hover_info <- renderUI({
     hover <- input$active_hover
