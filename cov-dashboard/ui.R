@@ -19,7 +19,6 @@ library("tidyverse")
 library("readxl")
 library("ggmap")
 library("ggpubr")
-# library("ggplotgui"
 library("ggrepel")
 # library("geojsonio")
 library("wppExplorer")
@@ -54,9 +53,6 @@ map.country.charcode <- function(ccc) {
   )
 }
 
-
-
-
 #-----------------------------------------------------
 # setup global variables
 #-----------------------------------------------------
@@ -76,7 +72,6 @@ header  <- dashboardHeader(title = "Snoopy's Covid 19 dashboard")
 sidebar <-dashboardSidebar(
   sidebarMenu(
     menuItem("World Overview"   , tabName = "world_dashboard", icon = icon("dashboard")),
-    # menuItem("World Overview 2"   , tabName = "world_dashboard_2", icon = icon("dashboard")),
     menuItem("Statistics (day)", tabName = "statistics"    , icon = icon("th")),
     menuItem(
       "Charts", tabName = "charts", icon=icon("bar-chart-o"), startExpand = TRUE,
@@ -85,7 +80,6 @@ sidebar <-dashboardSidebar(
     ),
     actionButton("load.data", "Reload data", icon = icon("refresh")),
     dateInput("date.snapshot", h3("Date input"), value = today()-1)
-    #dateInput("date.snapshot", h3("Date input"), value = as.Date("2020-05-30"))
   )
 )
 #--------------------
@@ -163,7 +157,7 @@ body <- dashboardBody(
         ),
         box(
           width = 9,
-          plotOutput("active", 
+          plotOutput("compare.countries.active", 
                      height = "800px", 
                      click  = clickOpts("active_click"),
                      hover  = hoverOpts("active_hover", delay = 100, delayType = "debounce")

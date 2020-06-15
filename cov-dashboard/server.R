@@ -51,15 +51,6 @@ if (file.exists(".api_key.R")) {
 #-----------------------------------------------------
 # setup global variables
 #-----------------------------------------------------
-## countries <- loadCountries()
-
-# dataInput <- function() {
-#   if( exists("df")) return(df)
-#   if(!exists("df")){ 
-#     df <- loadData()
-#     return(df)
-#   }
-# }
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
@@ -268,11 +259,11 @@ server <- function(input, output) {
     gg <- gg1 + gg2 + gg3 + plot_layout(nrow=3)
     return(gg)
   }
-  
+
   generateActive <- function() {
   # temporary!!!!!!
     ncol <- 2
-    
+
     if(input$data.selected == "absolute cases") {
       gg <- df.active() %>% ggplot(aes(x=day)) +
         geom_area(aes(y = cases,           fill = "recovered")) +
@@ -293,7 +284,7 @@ server <- function(input, output) {
                                      "active"="#f8766d",
                                      "death"="dark grey"))  # line color
     }
-    
+
     if(input$data.selected == "normalized cases per 100.000 residents") {
       gg <- df.active() %>% ggplot(aes(x=day)) +
         geom_area(aes(y = cases/population*100000            , fill = "recovered")) +
@@ -313,82 +304,13 @@ server <- function(input, output) {
                           values = c("recovered"="#00ba38",
                                      "active"="#f8766d",
                                      "death"="dark grey"))  # line color
-      
+
     }
     return(gg)
-    
+
   }
-  
-  generateWorldActive <- function() {
-    if(debug.on) {
-      cat("---------------------------> generateWorldActive()\n")
-      print(paste("max date: ",(df.world() %>% summarize(max.day = max(day)))[[1]]))
-    }
-    
-    gg <- df.world() %>% 
-      dplyr::filter(day >= "2020-02-01")      %>%
-      ggplot(aes(x=day)) +
-      geom_area(aes(y = cases,  fill = "recovered"))                           +
-      geom_area(aes(y = active, fill = "active"))                              +
-      geom_area(aes(y = deaths, fill = "death"))                               +
-      theme(
-        legend.position = c(0.02, 0.98),
-        legend.justification = c("left", "top"),
-        plot.margin = unit(c(1,1,1,2), "cm")
-      ) +
-      labs( x = NULL,
-            y = NULL,
-            title = NULL)                                                      +
-      # theme(
-      #   plot.title   = element_text(hjust = 0.0, size = 12, face = "bold"),
-      #   axis.text.x  = element_blank(),
-      #   axis.ticks.x = element_blank()
-      # ) +
-      scale_y_continuous(labels = label_number_si())                           +
-      scale_fill_manual(name="Cumulated Cases (total numbers)",
-                        values = c("recovered"="#00ba38",
-                                   "active"="#f8766d",
-                                   "death"="dark grey"))  # line color
-  }
-  
-  generateWorldIncidents <- function() {
-    gg <- df.input() %>% 
-      group_by(day)                           %>%
-      dplyr::filter(day >= "2020-02-01")      %>%
-      summarize(
-        cases.day     = sum(cases.day),
-        active.day    = sum(active.day),
-        recovered.day = sum(recovered.day),
-        deaths.day    = sum(deaths.day)
-      )                                       %>%
-      ggplot(aes(x=day))
-    
-    return(
-      gg + 
-        geom_area(aes(y=cases.day,                fill = "total"),     stat="identity") +
-        geom_area(aes(y=deaths.day+recovered.day, fill = "recovered"), stat="identity") +
-        geom_area(aes(y=deaths.day,               fill = "death"),     stat="identity") +
-        theme(
-          legend.position = c(0.02, 0.98),
-          legend.justification = c("left", "top"),
-          plot.margin = unit(c(1,1,1,2), "cm")
-        ) +
-        labs( x = NULL,
-              y = NULL,
-              title = NULL)                                                             +
-        scale_y_continuous(labels = label_number_si())                                  +
-        scale_fill_manual(  name="Cumulated Incidences per day",
-                            # breaks = c(1,2,3),
-                            values = c("total"="#f8766d",
-                                       "recovered"="#00ba38",
-                                       "death"="dark grey"),
-                            labels = c("new deaths per day", 
-                                       "new recovered per day",
-                                       "new cases per day"))  # line color
-    )
-    
-  }
-  
+
+
   generateCountriesActive <- function(){
     title.text <- paste("Anzahl Erkrankte pro Land am", input$date.snapshot, "Top 20)")
     gg <- df.day()                                              %>% 
@@ -561,15 +483,6 @@ server <- function(input, output) {
     generateChartsWorld()
   })
     
-  output$summary.world.active <- renderPlot({
-    ggarrange(
-      generateWorldActive(),
-      generateWorldIncidents(),
-      ncol = 1,
-      nrow = 2,
-      widths = c(1,1)
-    )
-  })
   output$summary.countries.top20 <- renderPlot({
     ggarrange(
       generateCountriesActive(),
@@ -604,7 +517,7 @@ server <- function(input, output) {
 #---------------------------------------
 # Active Cases
 #---------------------------------------
-  output$active <- renderPlot({
+  output$compare.countries.active <- renderPlot({
     #-----------------------------------------------------------
     # Anzahl Aktiver Erkrankungen pro 100.000 Einwohner pro Tag
     #   - gefiltert nach Tag
