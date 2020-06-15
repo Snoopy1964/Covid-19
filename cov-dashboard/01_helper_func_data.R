@@ -51,7 +51,7 @@ options("Debug.Dashboard" = TRUE)       # enable app specific debugging
 loadCountries <- function(source = "jhu") {
   # load iso data for countries
   data("iso3166")
-  population.tmp <- as.tibble(wpp.by.year(wpp.indicator("tpop"), 2020))
+  population.tmp <- as_tibble(wpp.by.year(wpp.indicator("tpop"), 2020))
   
   # load countries from RAPID API  
   if(source == "rapidapi") {
@@ -192,13 +192,14 @@ loadData.jhu <- function() {
     # select the relevant columns (same definition as of rapidAPI
     select(c(charcode, day, country.iso, population, cases, active, recovered, deaths))
   
-  return(df.jhu           %>%
+  return(df.jhu                                   %>%
+           dplyr::filter(!is.na(country.iso))     %>%
            mutate(
              cases.day     = cases      - dplyr::lag(cases,      default=0),
              active.day    = active     - dplyr::lag(active,     default=0),
              recovered.day = recovered  - dplyr::lag(recovered,  default=0),
              deaths.day    = deaths     - dplyr::lag(deaths,     default=0)
-           )              %>% 
+           )                                      %>% 
            ungroup(country)
   )
 }
@@ -222,9 +223,8 @@ loadData.rapidAPI <- function() {
     if (i==1) {
       df.all.tmp <- as_tibble(jsonlite::flatten(df.raw[5][1]$response))
     } else {
-      df.all.tmp <- rbind(df.all.tmp, as.tibble(jsonlite::flatten(df.raw[5][1]$response)))
+      df.all.tmp <- rbind(df.all.tmp, as_tibble(jsonlite::flatten(df.raw[5][1]$response)))
     }
-    ## assign(paste("df.", country, ".tmp", sep=""), as.tibble(flatten(df.raw[5][1]$response)))
     cat(" done\n")
   }
   

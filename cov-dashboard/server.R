@@ -209,7 +209,7 @@ server <- function(input, output) {
           labels = label_percent())
       )                           +
       scale_fill_manual(  name=NULL,
-                          values = c("death"="grey70"),
+                          values = c("death"="grey50"),
                           labels = c("mortatlity")
       )                                
     
@@ -454,8 +454,68 @@ server <- function(input, output) {
     return(gg)
   } 
   
+  generateCountriesDeaths <- function(){
+    title.text <- paste("Cumulated Deaths on ", today()-1)
+    gg <- df.day()                                              %>% 
+      select(c(charcode, country.iso, deaths)) %>% 
+      # Definition of plot
+      top_n(20, deaths)                                           %>%
+      ggplot(aes(reorder(country.iso, deaths), deaths))   + 
+      geom_col(fill = "grey50")     +
+      coord_flip()                                    +
+      # wrap axis.text for long country names like "Holy See (Vatican City State)"
+      aes(reorder(stringr::str_wrap(country.iso, 20), deaths), deaths)              +
+      # add numbers to the bars
+      geom_text_repel(aes( y     = deaths, 
+                           label = format(deaths, big.mark = ".", decimal.mark = ",")), 
+                      hjust = "top",
+                      direction = "x",
+                      color = "black")                +
+      labs( title = title.text,
+            x = NULL, 
+            y = NULL
+      )                                               +
+      theme(
+        plot.title = element_text(hjust = 0.0, size = 12, face = "bold"),
+        axis.text.x  = element_blank(),
+        axis.ticks.x = element_blank()
+      )
+    
+    return(gg)
+  } 
   
-  day <- reactive({return(input$date.snapshot)})
+  generateCountriesMortality <- function(){
+    title.text <- paste("Mortality Rate on ", today()-1)
+    gg <- df.day()                                              %>% 
+      select(c(charcode, country.iso, deaths,cases))            %>% 
+      mutate(mortality = deaths/cases)                          %>%
+      # Definition of plot
+      top_n(20, mortality)                                         %>%
+      ggplot(aes(reorder(country.iso, mortality), mortality))   + 
+      geom_col(fill = "grey50")     +
+      coord_flip()                                    +
+      # wrap axis.text for long country names like "Holy See (Vatican City State)"
+      aes(reorder(stringr::str_wrap(country.iso, 20), mortality), mortality)              +
+      # add numbers to the bars
+      geom_text_repel(aes( y     = mortality, 
+                           label = paste(format(mortality*100, digits = 3, big.mark = ".", decimal.mark = ","),"%")), 
+                      hjust = "top",
+                      direction = "x",
+                      color = "black")                +
+      labs( title = title.text,
+            x = NULL, 
+            y = NULL
+      )                                               +
+      theme(
+        plot.title = element_text(hjust = 0.0, size = 12, face = "bold"),
+        axis.text.x  = element_blank(),
+        axis.ticks.x = element_blank()
+      )
+    
+    return(gg)
+  } 
+
+    day <- reactive({return(input$date.snapshot)})
   
 #---------------------------------------
 # Dashboard
@@ -514,6 +574,8 @@ server <- function(input, output) {
     ggarrange(
       generateCountriesActive(),
       generateCountriesIncidents(),
+      generateCountriesDeaths(),
+      generateCountriesMortality(),
       ncol = 2,
       nrow = 2,
       widths = c(1,1)

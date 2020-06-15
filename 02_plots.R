@@ -114,7 +114,7 @@ if(!exists("countries")) countries <- loadCountries("jhu")
 # define data access function
 #-----------------------------------------------------------
 debug.on   <- TRUE
-force.load <- FALSE
+force.load <- TRUE
 ma         <- 0.2 # Margin von plots in cm
 
 df.input <- function() {
@@ -165,123 +165,6 @@ df.day <- function(){
 #-----------------------------------------------------------
 # CI pro Tag pro 100.000 Einwohner (World)
 #-----------------------------------------------------------
-generateWorldTotal <- function() {
-  if(debug.on) {
-    cat("---------------------------> generateWorldActive()\n")
-    print(paste("max date: ",(df.world() %>% summarize(max.day = max(day)))[[1]]))
-  }
-  
-  gg <- df.world() %>% 
-    dplyr::filter(day >= "2020-02-01")      %>%
-    ggplot(aes(x=day)) +
-    geom_area(aes(y = cases,  fill = "recovered"))                           +
-    geom_area(aes(y = active, fill = "active"))                              +
-    geom_area(aes(y = deaths, fill = "death"))                               +
-    theme(
-      legend.position = c(0.02, 0.98),
-      legend.justification = c("left", "top"),
-      plot.margin = unit(c(0,ma,ma,0), "cm")                 #,
-      # panel.border = element_blank()
-      # plot.background = element_rect(fill = "green")
-      # panel.spacing = unit(0, "cm")            #,
-      # legend.background = NULL
-      # legend.key.width = unit(1.5, "cm")
-    ) +
-    labs( x = NULL,
-          y = NULL,
-          title = NULL)                                                      +
-    scale_x_date(position = "top")                                           +
-    scale_y_continuous(labels = label_number_si())                           +
-    # scale_fill_manual(name="Cumulated Cases (total numbers)",
-    scale_fill_manual(name=NULL,
-                      values = c("recovered"="#00ba38",
-                                 "active"="#f8766d",
-                                 "death"="dark grey"))  # line color
-  return(gg)
-}
-
-generateWorldNorm <- function() {
-  gg <- generateWorldTotal() +
-    theme(
-      plot.margin = unit(c(ma,0,0,ma), "cm")      #,
-      # plot.background = element_rect(fill = "red")
-    )                                                +
-    scale_x_date(position = "bottom")                +
-    scale_y_continuous(
-      labels = label_number_si(),
-      position = "right"
-    )
-  
-  return(gg)
-}
-
-generateWorldDay <- function() {
-  gg <- df.input() %>% 
-    group_by(day)                           %>%
-    dplyr::filter(day >= "2020-02-01")      %>%
-    summarize(
-      cases.day     = sum(cases.day),
-      active.day    = sum(active.day),
-      recovered.day = sum(recovered.day),
-      deaths.day    = sum(deaths.day)
-    )                                       %>%
-    ggplot(aes(x=day))
-  
-  return(
-    gg + 
-      geom_area(aes(y=cases.day,                fill = "total"),     stat="identity") +
-      geom_area(aes(y=deaths.day+recovered.day, fill = "recovered"), stat="identity") +
-      geom_area(aes(y=deaths.day,               fill = "death"),     stat="identity") +
-      theme(
-        legend.position = c(0.02, 0.98),
-        legend.justification = c("left", "top"),
-        plot.margin = unit(c(0,0,ma,ma), "cm")                   #,
-        # plot.background = element_rect(fill = "yellow")
-        # panel.spacing = unit(0.0, "cm")         #,
-        # legend.key.width = unit(1.5, "cm")
-        # plot.margin = unit(c(1,1,1,2), "cm")
-      ) +
-      labs( x = NULL,
-            y = NULL,
-            title = NULL)                                                             +
-      scale_x_date(position = "top")                                            +
-      scale_y_continuous(
-        labels = label_number_si(),
-        position = "right"
-      )                                                                               +
-      # scale_fill_manual(  name="Cumulated Incidences per day",
-    scale_fill_manual(  name=NULL,
-                        # breaks = c(1,2,3),
-                        values = c("total"="#f8766d",
-                                   "recovered"="#00ba38",
-                                   "death"="dark grey"),
-                        labels = c("new deaths per day",
-                                   "new recovered per day",
-                                   "new cases per day"))  # line color
-  )
-  
-}
-
-generateWorldNormDay <- function() {
-  gg <- generateWorldDay()                               +
-        theme(
-          plot.margin = unit(c(ma,ma,0,0), "cm")            #,
-          # plot.background = element_rect(fill = "blue")
-        )                                                +
-    scale_x_date(position = "bottom")                    +
-    scale_y_continuous(
-      labels = label_number_si(),
-      position = "left"
-    )
-  
-    
-  return(gg)
-}
-
-ggWT  <- generateWorldTotal()
-ggWTD <- generateWorldDay()
-ggWN  <- generateWorldNorm()
-ggWND <- generateWorldNormDay()
 
 #---------------------------------------------------------------------
 #    - Charts 
@@ -445,7 +328,7 @@ generateCountriesIncidents <- function(){
     # add numbers to the bars
     geom_text_repel(aes( y     = Rsum, 
                          label = format(round(Rsum,0), big.mark = ".", decimal.mark = ",")), 
-                    hjust = "bottom",
+                    hjust = "top",
                     direction = "x",
                     color = "black")                +
     labs( title = title.text,
@@ -453,10 +336,72 @@ generateCountriesIncidents <- function(){
           y = "Anzahl Erkrankte pro 100.000 Einwohner"
     )                                               +
     theme(
-      plot.title = element_text(hjust = 0.0, size = 12, face = "bold")
-      
+      plot.title = element_text(hjust = 0.0, size = 12, face = "bold"),
+      axis.text.x  = element_blank(),
+      axis.ticks.x = element_blank()
     )
     
+  return(gg)
+} 
+
+generateCountriesDeaths <- function(){
+  title.text <- paste("Cumulated Deaths on ", today()-1)
+  gg <- df.day()                                              %>% 
+    select(c(charcode, country.iso, deaths)) %>% 
+    # Definition of plot
+    top_n(20, deaths)                                           %>%
+    ggplot(aes(reorder(country.iso, deaths), deaths))   + 
+    geom_col(fill = "grey50")     +
+    coord_flip()                                    +
+    # wrap axis.text for long country names like "Holy See (Vatican City State)"
+    aes(reorder(stringr::str_wrap(country.iso, 20), deaths), deaths)              +
+    # add numbers to the bars
+    geom_text_repel(aes( y     = deaths, 
+                         label = format(deaths, big.mark = ".", decimal.mark = ",")), 
+                    hjust = "top",
+                    direction = "x",
+                    color = "black")                +
+    labs( title = title.text,
+          x = NULL, 
+          y = NULL
+    )                                               +
+    theme(
+      plot.title = element_text(hjust = 0.0, size = 12, face = "bold"),
+      axis.text.x  = element_blank(),
+      axis.ticks.x = element_blank()
+    )
+  
+  return(gg)
+} 
+
+generateCountriesMortality <- function(){
+  title.text <- paste("Mortality Rate on ", today()-1)
+  gg <- df.day()                                              %>% 
+    select(c(charcode, country.iso, deaths,cases))            %>% 
+    mutate(mortality = deaths/cases)                          %>%
+    # Definition of plot
+    top_n(20, mortality)                                         %>%
+    ggplot(aes(reorder(country.iso, mortality), mortality))   + 
+    geom_col(fill = "grey50")     +
+    coord_flip()                                    +
+    # wrap axis.text for long country names like "Holy See (Vatican City State)"
+    aes(reorder(stringr::str_wrap(country.iso, 20), mortality), mortality)              +
+    # add numbers to the bars
+    geom_text_repel(aes( y     = mortality, 
+                         label = paste(format(mortality*100, digits = 3, big.mark = ".", decimal.mark = ","),"%")), 
+                    hjust = "top",
+                    direction = "x",
+                    color = "black")                +
+    labs( title = title.text,
+          x = NULL, 
+          y = NULL
+    )                                               +
+    theme(
+      plot.title = element_text(hjust = 0.0, size = 12, face = "bold"),
+      axis.text.x  = element_blank(),
+      axis.ticks.x = element_blank()
+    )
+  
   return(gg)
 } 
 
