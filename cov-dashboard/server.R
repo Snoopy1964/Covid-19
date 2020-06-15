@@ -317,7 +317,7 @@ server <- function(input, output) {
       top_n(20, cases)                                          %>%
       # Definition of plot
       ggplot(aes(reorder(country.iso, cases), cases)) + 
-      geom_bar(stat="identity", fill = "#f8766d")     +
+      geom_bar(stat="identity", fill = "#0073b7")     +
       coord_flip()                                    +
       # wrap axis.text for long country names like "Holy See (Vatican City State)"
       aes(reorder(stringr::str_wrap(country.iso, 20), 
@@ -350,7 +350,7 @@ server <- function(input, output) {
       top_n(20, Rsum)                                           %>%
       # Definition of plot
       ggplot(aes(reorder(country.iso, Rsum), Rsum))   + 
-      geom_col(fill = "#f8766d")                      +
+      geom_col(fill = "#0073b7")                      +
       coord_flip()                                    +
       # wrap axis.text for long country names like "Holy See (Vatican City State)"
       aes(reorder(stringr::str_wrap(country.iso, 20), 
