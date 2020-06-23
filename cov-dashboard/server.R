@@ -500,7 +500,7 @@ server <- function(input, output) {
 # Statistics
 #---------------------------------------
   output$cases.countries <- DT::renderDataTable({
-    df.tmp <- df.day() %>% select(country.iso, cases, active, recovered, deaths, population)
+    df.tmp <- df.day() %>% select(country.iso, cases, cases.day, active, recovered, deaths, population)
     cat("----------------------> DT::renderDataTable()")
     print(df.tmp)
     DT::datatable(
@@ -509,7 +509,8 @@ server <- function(input, output) {
         lengthMenu = c(5, 10, 20, 50),
         pageLength = 10,
         # language   = list(thousands = "."),
-        order      = list(list(2,'desc'))
+        order      = list(list(2,'desc')),
+        columnDefs = list(list(width = '100px', targets = c(1)))
       )) %>% 
       formatRound(names(df.tmp)[-1], 0)
   })
