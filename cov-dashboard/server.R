@@ -317,7 +317,7 @@ server <- function(input, output) {
       top_n(20, cases)                                          %>%
       # Definition of plot
       ggplot(aes(reorder(country.iso, cases), cases)) + 
-      geom_bar(stat="identity", fill = "#0073b7")     +
+      geom_bar(stat="identity", fill = "#0073b7", alpha = 0.6)     +
       coord_flip()                                    +
       # wrap axis.text for long country names like "Holy See (Vatican City State)"
       aes(reorder(stringr::str_wrap(country.iso, 20), 
@@ -350,7 +350,7 @@ server <- function(input, output) {
       top_n(20, Rsum)                                           %>%
       # Definition of plot
       ggplot(aes(reorder(country.iso, Rsum), Rsum))   + 
-      geom_col(fill = "#0073b7")                      +
+      geom_col(fill = "#0073b7", alpha = 0.6)         +
       coord_flip()                                    +
       # wrap axis.text for long country names like "Holy See (Vatican City State)"
       aes(reorder(stringr::str_wrap(country.iso, 20), 
@@ -383,7 +383,7 @@ server <- function(input, output) {
       # Definition of plot
       top_n(20, deaths)                                           %>%
       ggplot(aes(reorder(country.iso, deaths), deaths))   + 
-      geom_col(fill = "grey50")     +
+      geom_col(fill = "grey60")     +
       coord_flip()                                    +
       # wrap axis.text for long country names like "Holy See (Vatican City State)"
       aes(reorder(stringr::str_wrap(country.iso, 20), deaths), deaths)              +
@@ -414,7 +414,7 @@ server <- function(input, output) {
       # Definition of plot
       top_n(20, mortality)                                         %>%
       ggplot(aes(reorder(country.iso, mortality), mortality))   + 
-      geom_col(fill = "grey50")     +
+      geom_col(fill = "grey60")     +
       coord_flip()                                    +
       # wrap axis.text for long country names like "Holy See (Vatican City State)"
       aes(reorder(stringr::str_wrap(country.iso, 20), mortality), mortality)              +
