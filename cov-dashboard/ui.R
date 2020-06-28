@@ -43,7 +43,15 @@ if (file.exists(".api_key.R")) {
 #-----------------------------------------------------
 source("01_helper_func_data.R")
 
-load("data//countries.rda", .GlobalEnv)
+if(debug.on) {cat("------> load country data from ")}
+if(force.load) {
+  if(debug.on) {cat("web\n")}
+  countries <- loadCountries()
+  save(countries, file = "data//countries.rda")
+  if(debug.on) {cat("------> country data saved\n")}
+} else {
+  load("data//countries.rda", .GlobalEnv)
+}
 
 map.country.charcode <- function(ccc) {
   return(
@@ -58,6 +66,22 @@ map.country.charcode <- function(ccc) {
 #-----------------------------------------------------
 coi.id <- c("BE", "BR", "CA", "DK", "FI", "FR","DE", "GR", "IS", "IN", "IL", "IT", "JP", "LU", "MX", "NL", "NO", "PL", "PT", "RU", "ES", "SE", "CH", "TR", "GB", "US")
 coi <- map.country.charcode(coi.id)
+
+country.list.inputs <- list(
+  "World" = 1,
+  "> 2 M population" = 2,
+  "Europe" = 3,
+  "Top 20" = 4,
+  "Snoopy's List" = 99
+)
+
+region.list.inputs <- list(
+  "Country" = 0,
+  "Region" = 1,
+  "Continent" = 2,
+  "Major GEO3 regions" = 3,
+  "GEO3 regions" = 4
+)
 
 #--------------------
 # header of dashboard
@@ -75,11 +99,13 @@ sidebar <-dashboardSidebar(
     menuItem("Statistics (day)", tabName = "statistics"    , icon = icon("th")),
     menuItem(
       "Charts", tabName = "charts", icon=icon("bar-chart-o"), startExpand = TRUE,
-      menuSubItem("Cases, Incidences & Deaths", tabName = "cases"),
+      menuSubItem("Cases, Incidences & Deaths", tabName = "compareCountries"),
       menuSubItem("Compare Countries",          tabName = "compare", icon = icon("th"))
     ),
-    actionButton("load.data", "Reload data", icon = icon("refresh")),
-    dateInput("date.snapshot", h3("Date input"), value = today()-1)
+    dateInput("date.snapshot", h4("Date input"), value = today()-1),
+    radioButtons("region.select", h4("Aggregation Level"), choices = region.list.inputs, selected = 1),
+    # radioButtons("country.selection", h4("Select Countries"), choices = country.list.inputs, selected = 1),
+    actionButton("load.data", "Reload data", icon = icon("refresh"))
   )
 )
 #--------------------
@@ -105,8 +131,9 @@ body <- dashboardBody(
           side = "left",
           width = 12,
           selected = "Cases since Feb. 2020",
-          tabPanel("Cases since Feb. 2020",            plotOutput("summary.charts.world",    height = 600)),
-          tabPanel("Top 20 Countries at Selected Day", plotOutput("summary.countries.top20", height = 800))
+          tabPanel("Cases since Feb. 2020",            plotOutput("summary.charts.world",    height = 750)),
+          tabPanel("Top regions at Selected Day",      plotOutput("summary.charts.regions", height = 750)),
+          tabPanel("Top 20 Countries at Selected Day", plotOutput("summary.charts.countries.top20", height = 750))
         ),
       ),
     ),
@@ -119,7 +146,7 @@ body <- dashboardBody(
       )
     ),
     tabItem(
-      tabName = "cases",
+      tabName = "compareCountries",
       titlePanel("Compare countries"),
       # Boxes need to be put in a row (or column)
       fluidRow(

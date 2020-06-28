@@ -32,6 +32,7 @@ library("ggmap")
 library("ggrepel")
 #library("geojsonio")
 library("wppExplorer")
+library("rworldmap")
 library("scales")
 library("ggpubr")
 library("patchwork")
@@ -47,85 +48,116 @@ if (exists("x.rapiapi.key")) {
 #------------------------------
 options(dplyr.summarise.inform = FALSE) # get rid of annoying messages from summarise()
 options("Debug.Dashboard" = TRUE)       # enable app specific debugging
+options("Force.Load" = TRUE)            # force load of data
 
-loadCountries <- function(source = "jhu") {
+#-----------------------------------------------------------
+# load Countries
+#-----------------------------------------------------------
+loadCountries      <- function(source = "jhu") {
+  if(source == "rapidAPI") {
+    country.tmp <- loadCountries.rapidAPI()
+  } else if(source == "jhu") {
+    country.tmp <- loadCountries.jhu()
+  } else {
+    stop(paste("unknown data source: ", source))
+  }
+  data("countryRegions")
+  return(country.tmp %>% 
+           left_join(as_tibble(countryRegions), by = c("charcode3" = "ISO3")) %>%
+           select(-c("uncode", "IMAGE24", "GLOCAF", "Stern", "SRES","GBD", "AVOIDnumeric", "AVOIDname", "LDC", "SRESmajor", "SID", "LLDC")))
+}
+
+
+# load countries from RAPID API  
+loadCountries.rapidAPI <- function() {
+  # load iso data for countries
+  data("iso3166")
+  population.tmp <- as_tibble(wpp.by.year(wpp.indicator("tpop"), 2020))
+  # dowload list of countries
+  resp.tmp <- GET("https://covid-193.p.rapidapi.com/countries", 
+                  add_headers('x-rapidapi-host' = 'covid-193.p.rapidapi.com',
+                              'x-rapidapi-key'  = x.rapidapi.key)
+                  # query = list(country = "Germany")
+  )
+  df.raw.tmp    <- fromJSON(content(resp.tmp, "text", encoding="UTF-8"))
+  countries.tmp <- df.raw.tmp[5][1]$response 
+  
+  return(
+    countries.tmp                           %>% 
+      as_tibble(countries.tmp)                           %>% 
+      mutate(country.iso = convert.iso(value))           %>% 
+      left_join(iso3166, by = c("country.iso" = "name")) %>% 
+      dplyr::filter(!is.na(charcode))                    %>%
+      rename(country = value)                            %>%
+      left_join(population.tmp, by = "charcode")         %>%
+      rename(population = value)                         %>%
+      mutate(population = population*1000)
+  )
+  
+}
+
+# load countries from RAPID API  
+loadCountries.jhu <- function() {
   # load iso data for countries
   data("iso3166")
   population.tmp <- as_tibble(wpp.by.year(wpp.indicator("tpop"), 2020))
   
-  # load countries from RAPID API  
-  if(source == "rapidapi") {
-    # dowload list of countries
-    resp.tmp <- GET("https://covid-193.p.rapidapi.com/countries", 
-                    add_headers('x-rapidapi-host' = 'covid-193.p.rapidapi.com',
-                                'x-rapidapi-key'  = x.rapidapi.key)
-                    # query = list(country = "Germany")
-    )
-    df.raw.tmp    <- fromJSON(content(resp.tmp, "text", encoding="UTF-8"))
-    countries.tmp <- df.raw.tmp[5][1]$response 
+  jhu_countries <- as_tibble(
+    data.table::fread(
+      "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/UID_ISO_FIPS_LookUp_Table.csv", 
+      na.string = "---") # Namibia has iso2 = NA :-(
+  )                                                       %>% 
+    # remove cruise ships -> they don't have an iso2 code
+    dplyr::filter(iso2 != "")                             %>%
     
-    return(
-      countries.tmp                           %>% 
-        as_tibble(countries.tmp)                           %>% 
-        mutate(country.iso = convert.iso(value))           %>% 
-        left_join(iso3166, by = c("country.iso" = "name")) %>% 
-        dplyr::filter(!is.na(charcode))                    %>%
-        rename(country = value)                            %>%
-        left_join(population.tmp, by = "charcode")         %>%
-        rename(population = value)                         %>%
-        mutate(population = population*1000)
+    # use variable names from iso366 package
+    # !!!! Attention !!!!
+    # avoid iso2 and iso3 clash for Kosovo, 
+    # jhu data set has mapped it to XK/XKS but 
+    # iso3166 data used XK/XKW for region Western Asia
+    # XKX is temporary iso3 code -> KX is not used
+    mutate(
+      charcode  = if_else(iso2 == "XK" , "KX" , iso2),
+      charcode3 = if_else(iso3 == "XKS", "XKX", iso3)
+    )                                                     %>%
+    left_join(iso3166, by = "charcode")                   %>%
+    # remove "Unkonwn Province_States
+    dplyr::filter(Province_State != "Unknown")            %>%
+    # correct column is.country 
+    # Condition: Province_State is not empty 
+    mutate(is.country = if_else(UID < 1000, TRUE, FALSE)) %>%
+    # select relevant columns
+    select(Combined_Key, name, charcode, charcode3.x, UID, uncode, Population, is.country) %>% 
+    # rename to output format
+    rename(
+      country     = Combined_Key, 
+      country.iso = name,
+      charcode3   = charcode3.x,
+      population  = Population
     )
-  } else if(source == "jhu") {
-    jhu_countries <- as_tibble(
-      data.table::fread(
-        "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/UID_ISO_FIPS_LookUp_Table.csv", 
-        na.string = "---") # Namibia has iso2 = NA :-(
-    )                                                       %>% 
-      # remove cruise ships -> they don't have an iso2 code
-      dplyr::filter(iso2 != "")                             %>%
-      
-      # use variable names from iso366 package
-      # !!!! Attention !!!!
-      # avoid iso2 and iso3 clash for Kosovo, 
-      # jhu data set has mapped it to XK/XKS but 
-      # iso3166 data used XK/XKW for region Western Asia
-      # XKX is temporary iso3 code -> KX is not used
-      mutate(
-        charcode  = if_else(iso2 == "XK" , "KX" , iso2),
-        charcode3 = if_else(iso3 == "XKS", "XKX", iso3)
-      )                                                     %>%
-      left_join(iso3166, by = "charcode")                   %>%
-      # remove "Unkonwn Province_States
-      dplyr::filter(Province_State != "Unknown")            %>%
-      # correct column is.country 
-      # Condition: Province_State is not empty 
-      mutate(is.country = if_else(UID < 1000, TRUE, FALSE)) %>%
-      # select relevant columns
-      select(Combined_Key, name, charcode, charcode3.x, UID, uncode, Population, is.country) %>% 
-      # rename to output format
-      rename(
-        country     = Combined_Key, 
-        country.iso = name,
-        charcode3   = charcode3.x,
-        population  = Population
-      )
-      
-    return(jhu_countries %>% dplyr::filter(is.country))
-    
-  } else {
-    stop(paste("unkonowd data source: ",source))
-  }
   
+  return(jhu_countries %>% dplyr::filter(is.country))
 }
 
+#-----------------------------------------------------------
+# load Data
+#-----------------------------------------------------------
 loadData      <- function(source = "jhu") {
   if(source == "rapidAPI") {
-    return(loadData.rapidAPI())
+    ds.tmp <- loadData.rapidAPI()
   } else if(source == "jhu") {
-    return(loadData.jhu())
+    ds.tmp <- loadData.jhu()
   } else {
     stop(paste("unknown data source: ", source))
   }
+  print(countries)
+  return(
+    ds.tmp %>%
+      left_join(
+        countries %>% select(c("charcode", "REGION", "continent", "GEO3major", "GEO3")),
+        by = "charcode"
+      )                 
+  )
 }
 
 loadData.jhu <- function() {

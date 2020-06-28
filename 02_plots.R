@@ -114,7 +114,7 @@ if(!exists("countries")) countries <- loadCountries("jhu")
 # define data access function
 #-----------------------------------------------------------
 debug.on   <- TRUE
-force.load <- TRUE
+force.load <- FALSE
 ma         <- 0.2 # Margin von plots in cm
 
 df.input <- function() {
@@ -122,19 +122,21 @@ df.input <- function() {
   if(!exists("ds") | !exists("last.day") | !exists("last.day.load")) {
     if(debug.on) cat("------------> load data from file\n")
     load("data/cases.rda")
-    last.day      <<- (ds %>% summarise(max.day = max(day)))[[1]]
+    last.day      <- (ds %>% summarise(max.day = max(day)))[[1]]
     
-    if(debug.on) cat("------------> last date: \n",last.day, "\n")
+    if(debug.on) print(paste("------------> last.day:",last.day, "\n"))
   }
   if (!exists("last.day"))      last.day <- as.Date("2020-01-01")
   if (!exists("last.day.load")) last.day.load <- last.day
   if ((last.day < today() & last.day.load < today()) | force.load == TRUE) {
     if(debug.on) cat("------------> load data from jhu\n")
     ds <<- loadData()
+    last.day      <- (ds %>% summarise(max.day = max(day)))[[1]]
     last.day.load <- today()
     save(ds, last.day, last.day.load, file = "data/cases.rda")
     if(debug.on) cat("------------> data saved to file\n")
   }
+  if(debug.on) cat("----end-----> df.input()\n")
   return(ds)
 }
 
@@ -156,6 +158,26 @@ df.world <- function() {
   return(ds.tmp)
 }
 
+df.regions <- function(region = "REGION") {
+  ds.tmp <- ds                       %>%
+    group_by(day, .data[[region]])                      %>%
+    summarize(cases         = sum(cases),
+              cases.day     = sum(cases.day),
+              active        = sum(active, na.rm = TRUE),
+              active.day    = sum(active.day, na.rm = TRUE),
+              recovered     = sum(recovered, na.rm = TRUE),
+              recovered.day = sum(recovered.day, na.rm = TRUE),
+              deaths        = sum(deaths, na.rm = TRUE),
+              deaths.day    = sum(deaths.day, na.rm = TRUE),
+              population    = sum(population, na.rm = TRUE)
+    )   %>%
+    # South Sudan and Western Sahara have no entry in GEO3 -> github issue #3
+    dplyr::filter(!is.na(.data[[region]])) %>%
+    # rename grouping/aggregating variable to Region
+    rename(Region = .data[[region]])
+  return(ds.tmp)
+}
+
 df.day <- function(){
   return( df.input() %>% dplyr::filter(day == today()-1))
   
@@ -165,6 +187,56 @@ df.day <- function(){
 #-----------------------------------------------------------
 # CI pro Tag pro 100.000 Einwohner (World)
 #-----------------------------------------------------------
+
+#-------------------------------------------------------
+# generate plots for Tab summary.charts.regions
+#-------------------------------------------------------
+getGrouping <- function(i) {
+  if(i==1) {
+    return("REGION")
+  } else if(i ==2) {
+    return("continent")
+  } else if(i ==3) {
+    return("GEO3major")
+  } else if(i == 4) {
+    return("GEO3")
+  }
+}
+
+generateRegionsCases <- function(region.selected = "REGION"){
+  day.replace = today()-3
+  title.text <- paste("Anzahl Erkrankte pro Land am",  day.replace, "Top 20)")
+  gg <- df.regions( region.selected)            %>% 
+    dplyr::filter(day == day.replace)                 %>%
+    # Definition of plot
+    ggplot(aes(reorder(Region, cases), cases)) +
+    geom_bar(stat="identity", fill = "#0073b7", alpha = 0.6)     +
+    coord_flip()                                    +
+    # wrap axis.text for long country names like "Holy See (Vatican City State)"
+    aes(reorder(stringr::str_wrap(Region, 20), 
+                cases), 
+        cases)                                       +
+    # add numbers to the bars
+    geom_text_repel(aes( y     = cases, 
+                         label = format(cases, big.mark = ".", decimal.mark = ",")), 
+                    hjust = "top",
+                    direction = "x",
+                    color = "black")                +
+    labs( x = NULL,
+          y = NULL,
+          # y = "Anzahl Erkrankte",
+          title = title.text)                       +
+    theme(
+      plot.title   = element_text(hjust = 0.0, size = 12, face = "bold"),
+      axis.text.x  = element_blank(),
+      axis.ticks.x = element_blank()
+    )
+  
+  return(gg)
+} 
+
+
+
 
 #---------------------------------------------------------------------
 #    - Charts 

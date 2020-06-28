@@ -7,6 +7,11 @@
 #    http://shiny.rstudio.com/
 #
 
+#------------------------------------------------------
+# ToDo:
+# - https://github.com/Snoopy1964/Covid-19/issues/3
+#
+#------------------------------------------------------
 library("utils")
 library("httr")
 library("jsonlite")
@@ -55,8 +60,10 @@ if (file.exists(".api_key.R")) {
 # Define server logic required to draw a histogram
 server <- function(input, output) {
   # df <- load("data//cases.rda")
-  debug.on <<- options("Debug.Dashboard")[[1]]      # <<- loads in .GlobalEnv
+  debug.on   <<- options("Debug.Dashboard")[[1]]      # <<- loads in .GlobalEnv
   cat("------> initialize server(): Debugging Mode:", debug.on, "\n")
+  force.load <<- options("Force.Load")[[1]]           # <<- loads in .GlobalEnv
+  cat("------> initialize server(): force data load:", force.load, "\n")
   
   
   #--------------------------------------------------------------
@@ -65,14 +72,15 @@ server <- function(input, output) {
 
   df.input <- reactive({
     dummy <- input$load.data
-    if(debug.on) cat("------------> load data from file\n")
+    if(debug.on) cat("------------> df.input() load data from file\n")
     load("data/cases.rda")
-    last.day <- last.day <- as.Date((df %>% summarize(day = max(day)))[[1]])
-    if (last.day < today()) {
+    last.day <- as.Date((df %>% summarize(day = max(day)))[[1]])
+    if (last.day < today() | force.load) {
       df <- loadData()
       save(df, file = "data/cases.rda")
       if(debug.on) cat("------------> data saved to file\n")
     }
+    if(debug.on) cat("----end-----> df.input() load data from file\n")
     return(df)
   })
   
@@ -88,17 +96,45 @@ server <- function(input, output) {
       print(paste("max date: ",(df.input() %>% summarize(max.day = max(day)))[[1]]))
     }
     df.tmp <- df.input()      %>% 
-                group_by(day) %>% 
-                summarize(cases      = sum(cases),
-                          active     = sum(active, na.rm = TRUE),
-                          deaths     = sum(deaths, na.rm = TRUE),
-                          population = sum(population, na.rm = TRUE))
+      group_by(day) %>% 
+      summarize(cases         = sum(cases),
+                cases.day     = sum(cases.day),
+                active        = sum(active, na.rm = TRUE),
+                active.day    = sum(active.day, na.rm = TRUE),
+                recovered     = sum(recovered, na.rm = TRUE),
+                recovered.day = sum(recovered.day, na.rm = TRUE),
+                deaths        = sum(deaths, na.rm = TRUE),
+                deaths.day    = sum(deaths.day, na.rm = TRUE),
+                population    = sum(population, na.rm = TRUE)
+      )
     if(debug.on) {
       print(df.tmp %>% dplyr::filter(day == "2020-06-02"))
       cat("--------------> end of df.world()\n")
     }
     return(df.tmp)
   })
+  
+  df.region <- reactive({
+    region <- getGrouping(input$regions.selected)
+    ds.tmp <- df.input()                                            %>%
+      group_by(day, .data[[region]])                                %>%
+      summarize(cases         = sum(cases),
+                cases.day     = sum(cases.day),
+                active        = sum(active, na.rm = TRUE),
+                active.day    = sum(active.day, na.rm = TRUE),
+                recovered     = sum(recovered, na.rm = TRUE),
+                recovered.day = sum(recovered.day, na.rm = TRUE),
+                deaths        = sum(deaths, na.rm = TRUE),
+                deaths.day    = sum(deaths.day, na.rm = TRUE),
+                population    = sum(population, na.rm = TRUE)
+      )                                                             %>%
+      # South Sudan and Western Sahara have no entry in GEO3 -> github issue #3
+      dplyr::filter(!is.na(.data[[region]]))                        %>%
+      # rename grouping/aggregating variable to Region
+      rename(Region = .data[[region]])
+    return(ds.tmp)
+  })
+  
   df.day <- reactive({
     dummy <- input$load.data
     return( df.input() %>% dplyr::filter(day == input$date.snapshot))
@@ -260,58 +296,178 @@ server <- function(input, output) {
     return(gg)
   }
 
-  generateActive <- function() {
-  # temporary!!!!!!
-    ncol <- 2
-
-    if(input$data.selected == "absolute cases") {
-      gg <- df.active() %>% ggplot(aes(x=day)) +
-        geom_area(aes(y = cases,           fill = "recovered")) +
-        geom_area(aes(y = active + deaths, fill = "active"))    +
-        geom_area(aes(y = deaths,          fill = "death"))     +
-        theme(
-          # legend.position = c(0.02, 0.98),
-          legend.position = "left",
-          legend.justification = c("left", "top")
-        ) +
-        facet_wrap(
-          ~country.iso,
-          ncol = ncol
-        ) +
-        xlim(input$date.range, today()) +
-        scale_fill_manual(name="Cases (total number)",
-                          values = c("recovered"="#00ba38",
-                                     "active"="#f8766d",
-                                     "death"="dark grey"))  # line color
-    }
-
-    if(input$data.selected == "normalized cases per 100.000 residents") {
-      gg <- df.active() %>% ggplot(aes(x=day)) +
-        geom_area(aes(y = cases/population*100000            , fill = "recovered")) +
-        geom_area(aes(y = (active + deaths)/population*100000, fill = "active"))    +
-        geom_area(aes(y = deaths/population*100000           , fill = "death"))     +
-        theme(
-          legend.position = c(0.02, 0.98),
-          # legend.position = "top",
-          legend.justification = c("left", "top")
-        ) +
-        facet_wrap(
-          ~country.iso,
-          ncol = ncol
-        ) +
-        xlim(input$date.range, today()) +
-        scale_fill_manual(name="cumulated incidences per 100.000 residents",
-                          values = c("recovered"="#00ba38",
-                                     "active"="#f8766d",
-                                     "death"="dark grey"))  # line color
-
-    }
+  generateChartsRegions <- function(ma = -0.02){
+    start.date <- as.Date("2020-02-01")
+    ds.tmp <- df.world()               %>%
+      dplyr::filter(day >= start.date)  
+    
+    if(debug.on) cat("---------> generateChartsRegion(): region selected", input$region.select, "\n")
+    gg <- ggarrange(
+      generateRegionsCases(input$region.select),
+      generateRegionsIncidents(input$region.select),
+      generateRegionsDeaths(input$region.select),
+      generateRegionsMortality(input$region.select),
+      ncol = 2,
+      nrow = 2,
+      widths = c(1,1)
+    )
     return(gg)
-
   }
+  
 
+  
+  #-------------------------------------------------------
+  # generate plots for Tab summary.charts.regions
+  #-------------------------------------------------------
+  getGrouping <- function(i) {
+    if(i==0) {
+      return("country.iso")
+    } else if(i ==1) {
+      return("REGION")
+    } else if(i ==2) {
+      return("continent")
+    } else if(i ==3) {
+      return("GEO3major")
+    } else if(i == 4) {
+      return("GEO3")
+    }
+  }
+  
+  generateRegionsCases <- function(region.selected){
+    title.text <- paste("Anzahl Erkrankte pro Land am", input$date.snapshot, "Top 20)")
+    gg <- df.regions(getGrouping(region.selected))              %>% 
+      dplyr::filter(day == input$date.snapshot)                 %>%
+      # Definition of plot
+      top_n(20, cases)                                          %>%
+      ggplot(aes(reorder(Region, cases), cases)) + 
+      geom_bar(stat="identity", fill = "#0073b7", alpha = 0.6)  +
+      coord_flip()                                              +
+      # wrap axis.text for long country names like "Holy See (Vatican City State)"
+      aes(reorder(stringr::str_wrap(Region, 20), 
+                  cases), 
+          cases)                                                +
+      # add numbers to the bars
+      geom_text_repel(aes( y     = cases, 
+                           label = format(cases, big.mark = ".", decimal.mark = ",")), 
+                      hjust = "top",
+                      direction = "x",
+                      color = "black")                          +
+      labs( x = NULL,
+            y = NULL,
+            # y = "Anzahl Erkrankte",
+            title = title.text)                                 +
+      theme(
+        plot.title   = element_text(hjust = 0.0, size = 12, face = "bold"),
+        axis.text.x  = element_blank(),
+        axis.ticks.x = element_blank()
+      )
+    
+    return(gg)
+  } 
 
-  generateCountriesActive <- function(){
+  generateRegionsIncidents <- function(region.selected){
+    title.text <- paste("Anzahl Erkrankte pro 100.000 Einwohner pro Land am", input$date.snapshot, "Top 20)")
+    gg <- df.regions(getGrouping(region.selected))              %>% 
+      dplyr::filter(day == input$date.snapshot)                 %>%
+      mutate(Rsum = cases/population*100000)                    %>% 
+      select(c(Region, Rsum, cases, population)) %>% 
+      top_n(20, Rsum)                                           %>%
+      # Definition of plot
+      ggplot(aes(reorder(Region, Rsum), Rsum))        + 
+      geom_col(fill = "#0073b7", alpha = 0.6)         +
+      coord_flip()                                    +
+      # wrap axis.text for long country names like "Holy See (Vatican City State)"
+      aes(reorder(stringr::str_wrap(Region, 20), 
+                  Rsum), 
+          Rsum)                                       +
+      # add numbers to the bars
+      geom_text_repel(aes( y     = Rsum, 
+                           label = format(round(Rsum,0), big.mark = ".", decimal.mark = ",")), 
+                      hjust = "top",
+                      direction = "x",
+                      color = "black")                +
+      labs( title = title.text,
+            x = NULL, 
+            y = NULL
+            # y = "Anzahl Erkrankte pro 100.000 Einwohner"
+      )                                               +
+      theme(
+        plot.title   = element_text(hjust = 0.0, size = 12, face = "bold",),
+        axis.text.x  = element_blank(),
+        axis.ticks.x = element_blank()
+      )
+    
+    return(gg)
+  } 
+  
+  generateRegionsDeaths <- function(region.selected){
+    title.text <- paste("Cumulated Deaths on ", today()-1)
+    gg <- df.regions(getGrouping(region.selected))              %>% 
+      dplyr::filter(day == input$date.snapshot)                 %>%
+      select(c(Region, deaths)) %>% 
+      top_n(20, deaths)                                           %>%
+      # Definition of plot
+      ggplot(aes(reorder(Region, deaths), deaths))   + 
+      geom_col(fill = "grey60")     +
+      coord_flip()                                    +
+      # wrap axis.text for long country names like "Holy See (Vatican City State)"
+      aes(reorder(stringr::str_wrap(Region, 20), deaths), deaths)              +
+      # add numbers to the bars
+      geom_text_repel(aes( y     = deaths, 
+                           label = format(deaths, big.mark = ".", decimal.mark = ",")), 
+                      hjust = "top",
+                      direction = "x",
+                      color = "black")                +
+      labs( title = title.text,
+            x = NULL, 
+            y = NULL
+      )                                               +
+      theme(
+        plot.title = element_text(hjust = 0.0, size = 12, face = "bold"),
+        axis.text.x  = element_blank(),
+        axis.ticks.x = element_blank()
+      )
+    
+    return(gg)
+  } 
+  
+  generateRegionsMortality <- function(region.selected){
+    title.text <- paste("Mortality Rate on ", today()-1)
+    gg <- df.regions(getGrouping(region.selected))              %>% 
+      dplyr::filter(day == input$date.snapshot)                 %>%
+      select(c(Region, deaths,cases))            %>% 
+      mutate(mortality = deaths/cases)                          %>%
+      # Definition of plot
+      top_n(20, mortality)                                         %>%
+      ggplot(aes(reorder(Region, mortality), mortality))   + 
+      geom_col(fill = "grey60")     +
+      coord_flip()                                    +
+      # wrap axis.text for long country names like "Holy See (Vatican City State)"
+      aes(reorder(stringr::str_wrap(Region, 20), mortality), mortality)              +
+      # add numbers to the bars
+      geom_text_repel(aes( y     = mortality, 
+                           label = paste(format(mortality*100, digits = 3, big.mark = ".", decimal.mark = ","),"%")), 
+                      hjust = "top",
+                      direction = "x",
+                      color = "black")                +
+      labs( title = title.text,
+            x = NULL, 
+            y = NULL
+      )                                               +
+      theme(
+        plot.title = element_text(hjust = 0.0, size = 12, face = "bold"),
+        axis.text.x  = element_blank(),
+        axis.ticks.x = element_blank()
+      )
+    
+    return(gg)
+  } 
+  
+  
+  #-------------------------------------------------------
+  # generate plots for Tab summary.charts.countries.top20
+  #-------------------------------------------------------
+  generateCountriesCases <- function(){
     title.text <- paste("Anzahl Erkrankte pro Land am", input$date.snapshot, "Top 20)")
     gg <- df.day()                                              %>% 
       top_n(20, cases)                                          %>%
@@ -439,6 +595,61 @@ server <- function(input, output) {
 
     day <- reactive({return(input$date.snapshot)})
   
+#-----------------------------------------------------
+# Generation of plots for "Cases, Incidences & Deaths
+#-----------------------------------------------------
+    generateCompare <- function() {
+      # temporary!!!!!!
+      ncol <- 2
+      
+      if(input$data.selected == "absolute cases") {
+        gg <- df.active() %>% ggplot(aes(x=day)) +
+          geom_area(aes(y = cases,           fill = "recovered")) +
+          geom_area(aes(y = active + deaths, fill = "active"))    +
+          geom_area(aes(y = deaths,          fill = "death"))     +
+          theme(
+            # legend.position = c(0.02, 0.98),
+            legend.position = "left",
+            legend.justification = c("left", "top")
+          ) +
+          facet_wrap(
+            ~country.iso,
+            ncol = ncol
+          ) +
+          xlim(input$date.range, today()) +
+          scale_fill_manual(name="Cases (total number)",
+                            values = c("recovered"="#00ba38",
+                                       "active"="#f8766d",
+                                       "death"="dark grey"))  # line color
+      }
+      
+      if(input$data.selected == "normalized cases per 100.000 residents") {
+        gg <- df.active() %>% ggplot(aes(x=day)) +
+          geom_area(aes(y = cases/population*100000            , fill = "recovered")) +
+          geom_area(aes(y = (active + deaths)/population*100000, fill = "active"))    +
+          geom_area(aes(y = deaths/population*100000           , fill = "death"))     +
+          theme(
+            legend.position = c(0.02, 0.98),
+            # legend.position = "top",
+            legend.justification = c("left", "top")
+          ) +
+          facet_wrap(
+            ~country.iso,
+            ncol = ncol
+          ) +
+          xlim(input$date.range, today()) +
+          scale_fill_manual(name="cumulated incidences per 100.000 residents",
+                            values = c("recovered"="#00ba38",
+                                       "active"="#f8766d",
+                                       "death"="dark grey"))  # line color
+        
+      }
+      return(gg)
+      
+    }
+    
+    
+    
 #---------------------------------------
 # Dashboard
 #---------------------------------------
@@ -482,10 +693,14 @@ server <- function(input, output) {
   output$summary.charts.world <- renderPlot({
     generateChartsWorld()
   })
-    
-  output$summary.countries.top20 <- renderPlot({
+  
+  output$summary.charts.regions <- renderPlot({
+    generateChartsRegions()  
+  })
+  
+  output$summary.charts.countries.top20 <- renderPlot({
     ggarrange(
-      generateCountriesActive(),
+      generateCountriesCases(),
       generateCountriesIncidents(),
       generateCountriesDeaths(),
       generateCountriesMortality(),
@@ -523,7 +738,7 @@ server <- function(input, output) {
     # Anzahl Aktiver Erkrankungen pro 100.000 Einwohner pro Tag
     #   - gefiltert nach Tag
     #-----------------------------------------------------------
-    gg <- generateActive()
+    gg <- generateCompare()
     gg
   })
   
