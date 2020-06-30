@@ -115,7 +115,8 @@ server <- function(input, output) {
   })
   
   df.region <- reactive({
-    region <- getGrouping(input$regions.selected)
+    if(debug.on) cat("---------> df.region()\n")
+    region <- getGrouping(input$region.select)
     ds.tmp <- df.input()                                            %>%
       group_by(day, .data[[region]])                                %>%
       summarize(cases         = sum(cases),
@@ -303,10 +304,14 @@ server <- function(input, output) {
     
     if(debug.on) cat("---------> generateChartsRegion(): region selected", input$region.select, "\n")
     gg <- ggarrange(
-      generateRegionsCases(input$region.select),
-      generateRegionsIncidents(input$region.select),
-      generateRegionsDeaths(input$region.select),
-      generateRegionsMortality(input$region.select),
+      # generateRegionsCases(input$region.select),
+      # generateRegionsIncidents(input$region.select),
+      # generateRegionsDeaths(input$region.select),
+      # generateRegionsMortality(input$region.select),
+      generateRegionsCases(),
+      generateRegionsIncidents(),
+      generateRegionsDeaths(),
+      generateRegionsMortality(),
       ncol = 2,
       nrow = 2,
       widths = c(1,1)
@@ -320,6 +325,7 @@ server <- function(input, output) {
   # generate plots for Tab summary.charts.regions
   #-------------------------------------------------------
   getGrouping <- function(i) {
+    if(debug.on) cat("selected region:", i, str(i), "\n")
     if(i==0) {
       return("country.iso")
     } else if(i ==1) {
@@ -333,9 +339,9 @@ server <- function(input, output) {
     }
   }
   
-  generateRegionsCases <- function(region.selected){
+  generateRegionsCases <- function(){
     title.text <- paste("Anzahl Erkrankte pro Land am", input$date.snapshot, "Top 20)")
-    gg <- df.regions(getGrouping(region.selected))              %>% 
+    gg <- df.region()                                           %>% 
       dplyr::filter(day == input$date.snapshot)                 %>%
       # Definition of plot
       top_n(20, cases)                                          %>%
@@ -367,7 +373,7 @@ server <- function(input, output) {
 
   generateRegionsIncidents <- function(region.selected){
     title.text <- paste("Anzahl Erkrankte pro 100.000 Einwohner pro Land am", input$date.snapshot, "Top 20)")
-    gg <- df.regions(getGrouping(region.selected))              %>% 
+    gg <- df.region()                                           %>% 
       dplyr::filter(day == input$date.snapshot)                 %>%
       mutate(Rsum = cases/population*100000)                    %>% 
       select(c(Region, Rsum, cases, population)) %>% 
@@ -402,9 +408,9 @@ server <- function(input, output) {
   
   generateRegionsDeaths <- function(region.selected){
     title.text <- paste("Cumulated Deaths on ", today()-1)
-    gg <- df.regions(getGrouping(region.selected))              %>% 
-      dplyr::filter(day == input$date.snapshot)                 %>%
-      select(c(Region, deaths)) %>% 
+    gg <- df.region()                                             %>% 
+      dplyr::filter(day == input$date.snapshot)                   %>%
+      select(c(Region, deaths))                                   %>% 
       top_n(20, deaths)                                           %>%
       # Definition of plot
       ggplot(aes(reorder(Region, deaths), deaths))   + 
@@ -433,15 +439,15 @@ server <- function(input, output) {
   
   generateRegionsMortality <- function(region.selected){
     title.text <- paste("Mortality Rate on ", today()-1)
-    gg <- df.regions(getGrouping(region.selected))              %>% 
+    gg <- df.region()                                           %>% 
       dplyr::filter(day == input$date.snapshot)                 %>%
-      select(c(Region, deaths,cases))            %>% 
+      select(c(Region, deaths,cases))                           %>% 
       mutate(mortality = deaths/cases)                          %>%
       # Definition of plot
-      top_n(20, mortality)                                         %>%
-      ggplot(aes(reorder(Region, mortality), mortality))   + 
-      geom_col(fill = "grey60")     +
-      coord_flip()                                    +
+      top_n(20, mortality)                                      %>%
+      ggplot(aes(reorder(Region, mortality), mortality))        + 
+      geom_col(fill = "grey60")                                 +
+      coord_flip()                                              +
       # wrap axis.text for long country names like "Holy See (Vatican City State)"
       aes(reorder(stringr::str_wrap(Region, 20), mortality), mortality)              +
       # add numbers to the bars
@@ -449,11 +455,11 @@ server <- function(input, output) {
                            label = paste(format(mortality*100, digits = 3, big.mark = ".", decimal.mark = ","),"%")), 
                       hjust = "top",
                       direction = "x",
-                      color = "black")                +
+                      color = "black")                          +
       labs( title = title.text,
             x = NULL, 
             y = NULL
-      )                                               +
+      )                                                         +
       theme(
         plot.title = element_text(hjust = 0.0, size = 12, face = "bold"),
         axis.text.x  = element_blank(),

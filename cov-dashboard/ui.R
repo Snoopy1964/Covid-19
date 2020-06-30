@@ -43,6 +43,9 @@ if (file.exists(".api_key.R")) {
 #-----------------------------------------------------
 source("01_helper_func_data.R")
 
+debug.on   <- options("Debug.Dashboard")[[1]]
+force.load <- options("Force.Load")[[1]]
+
 if(debug.on) {cat("------> load country data from ")}
 if(force.load) {
   if(debug.on) {cat("web\n")}

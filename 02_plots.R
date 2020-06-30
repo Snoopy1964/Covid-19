@@ -192,6 +192,7 @@ df.day <- function(){
 # generate plots for Tab summary.charts.regions
 #-------------------------------------------------------
 getGrouping <- function(i) {
+  if(debug.on) cat("selected region:", i, str(i), "\n")
   if(i==1) {
     return("REGION")
   } else if(i ==2) {
