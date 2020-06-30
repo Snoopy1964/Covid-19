@@ -49,7 +49,7 @@ force.load <- options("Force.Load")[[1]]
 if(debug.on) {cat("------> load country data from ")}
 if(force.load) {
   if(debug.on) {cat("web\n")}
-  countries <- loadCountries()
+  countries <<- loadCountries()
   save(countries, file = "data//countries.rda")
   if(debug.on) {cat("------> country data saved\n")}
 } else {
@@ -106,7 +106,7 @@ sidebar <-dashboardSidebar(
       menuSubItem("Compare Countries",          tabName = "compare", icon = icon("th"))
     ),
     dateInput("date.snapshot", h4("Date input"), value = today()-1),
-    radioButtons("region.select", h4("Aggregation Level"), choices = region.list.inputs, selected = 1),
+    radioButtons("region.select", h4("Aggregation Level"), choices = region.list.inputs, selected = 4),
     # radioButtons("country.selection", h4("Select Countries"), choices = country.list.inputs, selected = 1),
     actionButton("load.data", "Reload data", icon = icon("refresh"))
   )
