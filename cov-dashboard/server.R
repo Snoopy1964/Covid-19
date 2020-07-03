@@ -141,17 +141,26 @@ server <- function(input, output) {
     return( df.input() %>% dplyr::filter(day == input$date.snapshot))
   })
   
-  world.cases <- function(sum.attribute, date = input$date.snapshot) {
+  world.cases <- function(sum.attribute) {
+    # dummy <- input$load.data
+    # date  <- input$date.snapshot
+    # df.input() %>% 
+    #   group_by(day) %>% 
+    #   select(c("day", .data[[sum.attribute]])) %>%
+    #   rename(cases = sum.attribute)   %>% 
+    #   summarize(sum(cases))           %>%
+    #   dplyr::filter(day == date)
+    # return(
+    # )
     dummy <- input$load.data
+    date  <- input$date.snapshot
+    df.tmp <- df.input()                       %>% 
+      group_by(day)                            %>% 
+      dplyr::filter(day == date)               %>%
+      summarize(total.number = sum(.data[[sum.attribute]]),
+                day.number   = sum(.data[[paste(sum.attribute,"day",sep=".")]]))                    
+    return(df.tmp)
     
-    return(
-      df.input() %>% 
-        group_by(day) %>% 
-        select(c("day", sum.attribute)) %>%
-        rename(cases = sum.attribute)   %>% 
-        summarize(sum(cases))           %>%
-        dplyr::filter(day == date)
-    )
   }
   
   
@@ -599,71 +608,78 @@ server <- function(input, output) {
     return(gg)
   } 
 
-    day <- reactive({return(input$date.snapshot)})
+  day <- reactive({return(input$date.snapshot)})
   
 #-----------------------------------------------------
 # Generation of plots for "Cases, Incidences & Deaths
 #-----------------------------------------------------
-    generateCompare <- function() {
-      # temporary!!!!!!
-      ncol <- 2
-      
-      if(input$data.selected == "absolute cases") {
-        gg <- df.active() %>% ggplot(aes(x=day)) +
-          geom_area(aes(y = cases,           fill = "recovered")) +
-          geom_area(aes(y = active + deaths, fill = "active"))    +
-          geom_area(aes(y = deaths,          fill = "death"))     +
-          theme(
-            # legend.position = c(0.02, 0.98),
-            legend.position = "left",
-            legend.justification = c("left", "top")
-          ) +
-          facet_wrap(
-            ~country.iso,
-            ncol = ncol
-          ) +
-          xlim(input$date.range, today()) +
-          scale_fill_manual(name="Cases (total number)",
-                            values = c("recovered"="#00ba38",
-                                       "active"="#f8766d",
-                                       "death"="dark grey"))  # line color
-      }
-      
-      if(input$data.selected == "normalized cases per 100.000 residents") {
-        gg <- df.active() %>% ggplot(aes(x=day)) +
-          geom_area(aes(y = cases/population*100000            , fill = "recovered")) +
-          geom_area(aes(y = (active + deaths)/population*100000, fill = "active"))    +
-          geom_area(aes(y = deaths/population*100000           , fill = "death"))     +
-          theme(
-            legend.position = c(0.02, 0.98),
-            # legend.position = "top",
-            legend.justification = c("left", "top")
-          ) +
-          facet_wrap(
-            ~country.iso,
-            ncol = ncol
-          ) +
-          xlim(input$date.range, today()) +
-          scale_fill_manual(name="cumulated incidences per 100.000 residents",
-                            values = c("recovered"="#00ba38",
-                                       "active"="#f8766d",
-                                       "death"="dark grey"))  # line color
-        
-      }
-      return(gg)
-      
+  generateCompare <- function() {
+    # temporary!!!!!!
+    ncol <- 2
+    
+    if(input$data.selected == "absolute cases") {
+      gg <- df.active() %>% ggplot(aes(x=day)) +
+        geom_area(aes(y = cases,           fill = "recovered")) +
+        geom_area(aes(y = active + deaths, fill = "active"))    +
+        geom_area(aes(y = deaths,          fill = "death"))     +
+        theme(
+          # legend.position = c(0.02, 0.98),
+          legend.position = "left",
+          legend.justification = c("left", "top")
+        ) +
+        facet_wrap(
+          ~country.iso,
+          ncol = ncol
+        ) +
+        xlim(input$date.range, today()) +
+        scale_fill_manual(name="Cases (total number)",
+                          values = c("recovered"="#00ba38",
+                                     "active"="#f8766d",
+                                     "death"="dark grey"))  # line color
     }
     
+    if(input$data.selected == "normalized cases per 100.000 residents") {
+      gg <- df.active() %>% ggplot(aes(x=day)) +
+        geom_area(aes(y = cases/population*100000            , fill = "recovered")) +
+        geom_area(aes(y = (active + deaths)/population*100000, fill = "active"))    +
+        geom_area(aes(y = deaths/population*100000           , fill = "death"))     +
+        theme(
+          legend.position = c(0.02, 0.98),
+          # legend.position = "top",
+          legend.justification = c("left", "top")
+        ) +
+        facet_wrap(
+          ~country.iso,
+          ncol = ncol
+        ) +
+        xlim(input$date.range, today()) +
+        scale_fill_manual(name="cumulated incidences per 100.000 residents",
+                          values = c("recovered"="#00ba38",
+                                     "active"="#f8766d",
+                                     "death"="dark grey"))  # line color
+      
+    }
+    return(gg)
     
-    
+  }
+  
+  
+  
 #---------------------------------------
 # Dashboard
 #---------------------------------------
+  # Helper function for output format of numbers
+  format.number <- function(d) {
+    return(formatC(d, big.mark=".", decimal.mark=",", flag="+", format="d"))
+  }
+  
   output$world.total.cases <- renderValueBox(
     valueBox(
-      h4("total cases"),
-      h4(format(world.cases("cases", day())[[2]], big.mark=".", decimal.mark=",")),
-      "as.character(input$date.snapshot)",
+      h4("cases"),
+      tagList(
+        h4(format.number(world.cases("cases")$total.number[1])),
+        h6(paste("(", format.number(world.cases("cases")$day.number[1]),")"))
+      ),
       icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
       color = "blue"
     )
@@ -671,8 +687,11 @@ server <- function(input, output) {
   
   output$world.active.cases <- renderValueBox(
     valueBox(
-      h4("active cases"),
-      h4(format(world.cases("active", day())[[2]], big.mark=".", decimal.mark=",")),
+      h4("active"),
+      tagList(
+        h4(format.number(world.cases("active")$total.number[1])),
+        h6(paste("(", format.number(world.cases("active")$day.number[1]),")"))
+      ),
       icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
       color = "red"
     )
@@ -680,8 +699,11 @@ server <- function(input, output) {
   
   output$world.recovered.cases <- renderValueBox(
     valueBox(
-      h4("recovered cases"),
-      h4(format(world.cases("recovered", day())[[2]], big.mark=".", decimal.mark=",")),
+      h4("recovered"),
+      tagList(
+        h4(format.number(world.cases("recovered")$total.number[1])),
+        h6(paste("(", format.number(world.cases("recovered")$day.number[1]),")"))
+      ),
       icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
       color = "green"
     )
@@ -689,8 +711,11 @@ server <- function(input, output) {
   
   output$world.death <- renderValueBox(
     valueBox(
-      h4("total deaths"),
-      h4(format(world.cases("deaths", day())[[2]], big.mark=".", decimal.mark=",")),
+      h4("deaths"),
+      tagList(
+        h4(format.number(world.cases("deaths")$total.number[1])),
+        h6(paste("(", format.number(world.cases("deaths")$day.number[1]),")"))
+      ),
       icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
       color = "black"
     )

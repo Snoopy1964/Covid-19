@@ -105,7 +105,13 @@ sidebar <-dashboardSidebar(
       menuSubItem("Cases, Incidences & Deaths", tabName = "compareCountries"),
       menuSubItem("Compare Countries",          tabName = "compare", icon = icon("th"))
     ),
-    dateInput("date.snapshot", h4("Date input"), value = today()-1),
+    dateInput("date.snapshot", 
+              tagList(
+                h4("Date input"),
+                div("Data will be updated at JHU around midnighth. Latest available data are from the previous day.",
+                       style = "white-space: normal; font-size: xx-small")
+              ),
+              value = today()-1),
     radioButtons("region.select", h4("Aggregation Level"), choices = region.list.inputs, selected = 4),
     # radioButtons("country.selection", h4("Select Countries"), choices = country.list.inputs, selected = 1),
     actionButton("load.data", "Reload data", icon = icon("refresh"))
