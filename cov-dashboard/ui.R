@@ -100,6 +100,7 @@ sidebar <-dashboardSidebar(
   sidebarMenu(
     menuItem("World Overview"   , tabName = "world_dashboard", icon = icon("dashboard")),
     menuItem("Statistics (day)", tabName = "statistics"    , icon = icon("th")),
+    menuItem("Countries", tabName = "country_dashboard", icon =icon("dashboard")),
     menuItem(
       "Charts", tabName = "charts", icon=icon("bar-chart-o"), startExpand = TRUE,
       menuSubItem("Cases, Incidences & Deaths", tabName = "compareCountries"),
@@ -152,6 +153,17 @@ body <- dashboardBody(
       titlePanel("Numbers per day"),
       fluidRow(
         DT::dataTableOutput("cases.countries")
+      )
+    ),
+    tabItem(
+      tabName = "country_dashboard",
+      column(
+        width = 3,
+        DT::dataTableOutput("cases.countries1")
+      ),
+      column(
+        width = 9,
+        DT::dataTableOutput("cases.countries2")
       )
     ),
     tabItem(

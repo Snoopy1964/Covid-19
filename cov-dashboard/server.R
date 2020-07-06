@@ -742,26 +742,49 @@ server <- function(input, output) {
   })
   
 
-#---------------------------------------
-# Statistics
-#---------------------------------------
+  #---------------------------------------
+  # Statistics
+  #---------------------------------------
   output$cases.countries <- DT::renderDataTable({
     df.tmp <- df.day() %>% select(country.iso, cases, cases.day, active, recovered, deaths, population)
     cat("----------------------> DT::renderDataTable()")
     print(df.tmp)
     DT::datatable(
-      df.tmp, 
+      df.tmp,
+      rownames = FALSE,
       options = list(
         lengthMenu = c(5, 10, 20, 50),
-        pageLength = 10,
+        pageLength = 20,
         # language   = list(thousands = "."),
         order      = list(list(2,'desc')),
         columnDefs = list(list(width = '100px', targets = c(1)))
       )) %>% 
       formatRound(names(df.tmp)[-1], 0)
   })
-    
-#---------------------------------------
+  
+  #---------------------------------------
+  # Statistics
+  #---------------------------------------
+  output$cases.countries1 <- DT::renderDataTable({
+    df.tmp <- df.day() %>% select(cases, country.iso)
+    cat("----------------------> DT::renderDataTable()")
+    print(df.tmp)
+    DT::datatable(
+      df.tmp,
+      rownames = FALSE,
+      options = list(
+        paging = FALSE,
+        scrollY = TRUE,
+        lengthMenu = FALSE,
+        pageLength = 20,
+        # language   = list(thousands = "."),
+        order      = list(list(0,'desc'))
+        # columnDefs = list(list(width = '100px', targets = c(1,2)))
+      )) %>% 
+      formatRound(names(df.tmp)[-2], 0)
+  })
+  
+  #---------------------------------------
 # Active Cases
 #---------------------------------------
   output$compare.countries.active <- renderPlot({
