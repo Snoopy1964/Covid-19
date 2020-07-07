@@ -102,9 +102,10 @@ sidebar <-dashboardSidebar(
     menuItem("Statistics (day)", tabName = "statistics"    , icon = icon("th")),
     menuItem("Countries", tabName = "country_dashboard", icon =icon("dashboard"),
              menuSubItem("Details of Country", tabName = "country_details"),
-             selectInput("select", label = FALSE, 
-                         choices = list("Choice 1" = 1, "Choice 2" = 2, "Choice 3" = 3), 
-                         selected = 1)),
+             selectInput("select.country", label = NULL, 
+                         choices = countries$country.iso, 
+                         # choices = list("Choice 1" = 1, "Choice 2" = 2, "Choice 3" = 3), 
+                         selected = "Germany")),
     menuItem(
       "Charts", tabName = "charts", icon=icon("bar-chart-o"), startExpand = TRUE,
       menuSubItem("Cases, Incidences & Deaths", tabName = "compareCountries"),
