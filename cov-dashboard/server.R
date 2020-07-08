@@ -58,7 +58,7 @@ if (file.exists(".api_key.R")) {
 #-----------------------------------------------------
 
 # Define server logic required to draw a histogram
-server <- function(input, output) {
+server <- function(input, output, session) {
   # df <- load("data//cases.rda")
   debug.on   <<- options("Debug.Dashboard")[[1]]      # <<- loads in .GlobalEnv
   cat("------> initialize server(): Debugging Mode:", debug.on, "\n")
@@ -163,9 +163,16 @@ server <- function(input, output) {
     
   }
   
-  
-  
-  # source("20_server_output.R")
+  #----------------------------------------------------------
+  # manipulate UI elements
+  #----------------------------------------------------------
+  observe({
+    updateSelectInput(
+      session,
+      "select.country",
+      choices = country.selector(df.day())
+    )
+  })
   #----------------------------------------------------------
   # generate plots to be used inside server output
   #----------------------------------------------------------

@@ -357,4 +357,17 @@ convert.iso <- function(names) {
 }
 
 
+#-------------------------------------------------------------------------------
+# build selector for country selection
+#-------------------------------------------------------------------------------
+country.selector <- function(ds) {
+  f4.country <- ds                                       %>% 
+    # dplyr::filter(day == today()-1)                      %>% 
+    select(charcode, country.iso, cases)                 %>% 
+    arrange(desc(cases))                                 %>% 
+    mutate(selector = paste(country.iso, "(",cases,")")) %>%
+    select(selector,charcode)                            %>%
+    deframe()
 
+    return(f4.country)
+}
