@@ -137,22 +137,12 @@ server <- function(input, output, session) {
   })
   
   df.day <- reactive({
-    dummy <- input$load.data
+    # dummy <- input$load.data
     return( df.input() %>% dplyr::filter(day == input$date.snapshot))
   })
   
   world.cases <- function(sum.attribute) {
     # dummy <- input$load.data
-    # date  <- input$date.snapshot
-    # df.input() %>% 
-    #   group_by(day) %>% 
-    #   select(c("day", .data[[sum.attribute]])) %>%
-    #   rename(cases = sum.attribute)   %>% 
-    #   summarize(sum(cases))           %>%
-    #   dplyr::filter(day == date)
-    # return(
-    # )
-    dummy <- input$load.data
     date  <- input$date.snapshot
     df.tmp <- df.input()                       %>% 
       group_by(day)                            %>% 
@@ -160,17 +150,36 @@ server <- function(input, output, session) {
       summarize(total.number = sum(.data[[sum.attribute]]),
                 day.number   = sum(.data[[paste(sum.attribute,"day",sep=".")]]))                    
     return(df.tmp)
-    
+  }
+
+  df.country <- reactive({
+    selected.country <- input$selectCountry
+    df.tmp  <- df.input()                      %>% 
+      group_by(day)                            %>% 
+      dplyr::filter(charcode == selected.country)
+  })
+  
+  country.cases <- function(sum.attribute) {
+    if(debug.on) cat("-------> country.cases()", input$date.snapshot, input$selectCountry,"\n")
+    df.tmp  <- df.country()                     %>% 
+      dplyr::filter(day == input$date.snapshot) %>%
+      summarize(total.number = sum(.data[[sum.attribute]]),
+                day.number   = sum(.data[[paste(sum.attribute,"day",sep=".")]]))                    
+    if(debug.on) print("-------> country.cases()\n")
+    if(debug.on) print(df.tmp)
+    return(df.tmp)
   }
   
-  #----------------------------------------------------------
+  # ----------------------------------------------------------
   # manipulate UI elements
-  #----------------------------------------------------------
+  # ----------------------------------------------------------
   observe({
+    if(debug.on) cat("---------> observe()\n")
     updateSelectInput(
       session,
-      "select.country",
-      choices = country.selector(df.day())
+      "selectCountry",
+      choices = country.selector(df.day()),
+      selected = "DE"
     )
   })
   #----------------------------------------------------------
@@ -748,6 +757,67 @@ server <- function(input, output, session) {
     )
   })
   
+  #---------------------------------------
+  # Country Details
+  #---------------------------------------  
+  output$country.total.cases <- renderValueBox({
+    # updateSelectInput(
+    #   session,
+    #   "selectCountry",
+    #   choices = country.selector(df.day()),
+    #   selected = "DE"
+    # )
+    if(debug.on) {
+      cat(paste("---------> output$country.total.cases for: ",input$selectCountry, "\n"))
+      print(country.cases("cases"))
+    }
+    valueBox(
+      h4("cases"),
+      tagList(
+        h4(format.number(country.cases("cases")$total.number[1])),
+        h6(paste("(", format.number(country.cases("cases")$day.number[1]),")"))
+      ),
+      icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
+      color = "blue"
+    )
+  })  
+  
+output$country.active.cases <- renderValueBox(
+  valueBox(
+    h4("active"),
+    tagList(
+      h4(format.number(country.cases("active")$total.number[1])),
+      h6(paste("(", format.number(country.cases("active")$day.number[1]),")"))
+    ),
+    icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
+    color = "red"
+  )
+)  
+
+output$country.recovered.cases <- renderValueBox(
+  valueBox(
+    h4("recovered"),
+    tagList(
+      h4(format.number(country.cases("recovered")$total.number[1])),
+      h6(paste("(", format.number(country.cases("recovered")$day.number[1]),")"))
+    ),
+    icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
+    color = "green"
+  )
+)  
+
+output$country.death <- renderValueBox(
+  valueBox(
+    h4("deaths"),
+    tagList(
+      h4(format.number(country.cases("deaths")$total.number[1])),
+      h6(paste("(", format.number(country.cases("deaths")$day.number[1]),")"))
+    ),
+    icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
+    color = "black"
+  )
+)  
+
 
   #---------------------------------------
   # Statistics

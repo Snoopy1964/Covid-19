@@ -98,29 +98,35 @@ header  <- dashboardHeader(title = "Snoopy's Covid 19 dashboard")
 
 sidebar <-dashboardSidebar(
   sidebarMenu(
-    menuItem("World Overview"   , tabName = "world_dashboard", icon = icon("dashboard")),
+    menuItem("World Overview"  , tabName = "world_dashboard", icon = icon("dashboard")),
     menuItem("Statistics (day)", tabName = "statistics"    , icon = icon("th")),
     menuItem("Countries", tabName = "country_dashboard", icon =icon("dashboard"),
-             menuSubItem("Details of Country", tabName = "country_details"),
-             selectInput("select.country", label = NULL, 
-                         # choices = countries$country.iso, 
-                         choices = NULL, 
-                         # choices = list("Choice 1" = 1, "Choice 2" = 2, "Choice 3" = 3), 
-                         selected = NULL)),
+             selectInput("selectCountry", label = NULL,
+                         # choices = countries$country.iso,
+                         choices = c("DE", "UK", "IT", "ES"),
+                         # choices = list("Choice 1" = 1, "Choice 2" = 2, "Choice 3" = 3),
+                         selected = "IN"),
+             menuSubItem("Details of Country", tabName = "country_details") 
+    ),
     menuItem(
       "Charts", tabName = "charts", icon=icon("bar-chart-o"), startExpand = TRUE,
-      menuSubItem("Cases, Incidences & Deaths", tabName = "compareCountries"),
+      menuSubItem("Cases, Incidences & Deaths", tabName = "compare_countries"),
       menuSubItem("Compare Countries",          tabName = "compare", icon = icon("th"))
     ),
     dateInput("date.snapshot", 
               tagList(
                 h4("Date input"),
                 div("Data will be updated at JHU around midnighth. Latest available data are from the previous day.",
-                       style = "white-space: normal; font-size: xx-small")
+                    style = "white-space: normal; font-size: xx-small")
               ),
               value = today()-1),
     radioButtons("region.select", h4("Aggregation Level"), choices = region.list.inputs, selected = 4),
     # radioButtons("country.selection", h4("Select Countries"), choices = country.list.inputs, selected = 1),
+    # selectInput("selectCountry", label = NULL, 
+    #             # choices = countries$country.iso, 
+    #             choices = c("DE", "UK", "IT", "ES"), 
+    #             # choices = list("Choice 1" = 1, "Choice 2" = 2, "Choice 3" = 3), 
+    #             selected = "IN"),
     actionButton("load.data", "Reload data", icon = icon("refresh"))
   )
 )
@@ -161,19 +167,18 @@ body <- dashboardBody(
         DT::dataTableOutput("cases.countries")
       )
     ),
-    tabItem(
-      tabName = "country_dashboard",
-      column(
-        width = 3,
-        DT::dataTableOutput("cases.countries1")
-      ),
-      column(
-        width = 9,
-        DT::dataTableOutput("cases.countries2")
+    tabItem(    
+      tabName = "country_details",
+      titlePanel("Details of Country at..."),
+      fluidRow(
+        valueBoxOutput("country.total.cases", width=3),
+        valueBoxOutput("country.active.cases", width=3),
+        valueBoxOutput("country.recovered.cases", width=3),
+        valueBoxOutput("country.death", width=3)
       )
     ),
     tabItem(
-      tabName = "compareCountries",
+      tabName = "compare_countries",
       titlePanel("Compare countries"),
       # Boxes need to be put in a row (or column)
       fluidRow(

@@ -150,7 +150,7 @@ loadData      <- function(source = "jhu") {
   } else {
     stop(paste("unknown data source: ", source))
   }
-  print(countries)
+  # print(countries)
   return(
     ds.tmp %>%
       left_join(

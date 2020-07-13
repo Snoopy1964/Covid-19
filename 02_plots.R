@@ -183,6 +183,14 @@ df.day <- function(){
   
 }
 
+df.country <- function() {
+  # country <- input$selectCountry
+  selected.country <- "AF"
+  df.tmp  <- df.input()                      %>% 
+    group_by(day)                            %>% 
+    dplyr::filter(charcode == selected.country)
+  return(df.tmp)
+}
 
 #-----------------------------------------------------------
 # CI pro Tag pro 100.000 Einwohner (World)
