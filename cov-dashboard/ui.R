@@ -121,12 +121,6 @@ sidebar <-dashboardSidebar(
               ),
               value = today()-1),
     radioButtons("region.select", h4("Aggregation Level"), choices = region.list.inputs, selected = 4),
-    # radioButtons("country.selection", h4("Select Countries"), choices = country.list.inputs, selected = 1),
-    # selectInput("selectCountry", label = NULL, 
-    #             # choices = countries$country.iso, 
-    #             choices = c("DE", "UK", "IT", "ES"), 
-    #             # choices = list("Choice 1" = 1, "Choice 2" = 2, "Choice 3" = 3), 
-    #             selected = "IN"),
     actionButton("load.data", "Reload data", icon = icon("refresh"))
   )
 )
@@ -152,12 +146,12 @@ body <- dashboardBody(
           id = "tabBox.world",
           side = "left",
           width = 12,
-          selected = "Cases since Feb. 2020",
-          tabPanel("Cases since Feb. 2020",            plotOutput("summary.charts.world",    height = 750)),
+          selected = "Cases World since Feb. 2020",
+          tabPanel("Cases World since Feb. 2020",      plotOutput("summary.charts.world",    height = 750)),
           tabPanel("Top regions at Selected Day",      plotOutput("summary.charts.regions", height = 750)),
           tabPanel("Top 20 Countries at Selected Day", plotOutput("summary.charts.countries.top20", height = 750))
-        ),
-      ),
+        )
+      )
     ),
     # First tab content
     tabItem(
@@ -169,13 +163,34 @@ body <- dashboardBody(
     ),
     tabItem(    
       tabName = "country_details",
-      titlePanel("Details of Country at..."),
+      
+      # titlePanel("Details of Country at..."),
       fluidRow(
         valueBoxOutput("country.total.cases", width=3),
         valueBoxOutput("country.active.cases", width=3),
         valueBoxOutput("country.recovered.cases", width=3),
         valueBoxOutput("country.death", width=3)
+      ),
+      
+      fluidRow(
+        tabBox(
+          id = "country_tabBox",
+          side = "left",
+          width = 12,
+          tabPanel("Cases since Feb. 2020", plotOutput("summary.charts.country", height = 750)),
+          tabPanel("DuMichErstRecht")
+        )
+        # plotOutput("summary.charts.country", height = 750)
+        # tabBox(
+        #   id = "country_tabBox",
+        #   side = "left",
+        #   width = 12,
+        #   # selected = "Cases Country since Feb. 2020",
+        #   tabPanel("DuMichAuch", plotOutput("summary.charts.country", height = 750)),
+        #   tabPanel("Incidence Rate",        plotOutput("summary.charts.regions", height = 750))
+        # )
       )
+      
     ),
     tabItem(
       tabName = "compare_countries",

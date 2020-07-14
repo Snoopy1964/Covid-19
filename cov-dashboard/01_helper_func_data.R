@@ -156,7 +156,28 @@ loadData      <- function(source = "jhu") {
       left_join(
         countries %>% select(c("charcode", "REGION", "continent", "GEO3major", "GEO3")),
         by = "charcode"
-      )                 
+      )  %>%
+      add_row(
+        country = "World",
+        charcode = "AA",
+        country.iso = "World",
+        ds.tmp %>% 
+          group_by(day) %>% 
+          summarize(cases         = sum(cases),
+                    cases.day     = sum(cases.day),
+                    active        = sum(active, na.rm = TRUE),
+                    active.day    = sum(active.day, na.rm = TRUE),
+                    recovered     = sum(recovered, na.rm = TRUE),
+                    recovered.day = sum(recovered.day, na.rm = TRUE),
+                    deaths        = sum(deaths, na.rm = TRUE),
+                    deaths.day    = sum(deaths.day, na.rm = TRUE),
+                    population    = sum(population, na.rm = TRUE)
+          ),
+        REGION = "World",
+        
+        .before = 1
+      )
+    
   )
 }
 
