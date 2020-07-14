@@ -147,10 +147,16 @@ df.world <- function() {
   }
   ds.tmp <- df.input()      %>% 
     group_by(day) %>% 
-    summarize(cases      = sum(cases),
-              active     = sum(active, na.rm = TRUE),
-              deaths     = sum(deaths, na.rm = TRUE),
-              population = sum(population, na.rm = TRUE))
+    summarize(cases         = sum(cases),
+              cases.day     = sum(cases.day),
+              active        = sum(active, na.rm = TRUE),
+              active.day    = sum(active.day, na.rm = TRUE),
+              recovered     = sum(recovered, na.rm = TRUE),
+              recovered.day = sum(recovered.day, na.rm = TRUE),
+              deaths        = sum(deaths, na.rm = TRUE),
+              deaths.day    = sum(deaths.day, na.rm = TRUE),
+              population    = sum(population, na.rm = TRUE)
+    )
   if(debug.on) {
     print(ds.tmp %>% dplyr::filter(day == today()-1))
     cat("--------------> end of df.world()\n")
