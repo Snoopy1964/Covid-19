@@ -100,13 +100,13 @@ sidebar <-dashboardSidebar(
   sidebarMenu(
     menuItem("World Overview"  , tabName = "world_dashboard", icon = icon("dashboard")),
     menuItem("Statistics (day)", tabName = "statistics"    , icon = icon("th")),
-    menuItem("Countries", tabName = "country_dashboard", icon =icon("dashboard"),
+    menuItem("Countries", tabName = "country_dashboard", icon =icon("dashboard"), selected = TRUE, startExpanded = TRUE,
              selectInput("selectCountry", label = NULL,
                          # choices = countries$country.iso,
                          choices = c("DE", "UK", "IT", "ES"),
                          # choices = list("Choice 1" = 1, "Choice 2" = 2, "Choice 3" = 3),
                          selected = "IN"),
-             menuSubItem("Details of Country", tabName = "country_details") 
+             menuSubItem("Details of Country", tabName = "country_details", selected = TRUE) 
     ),
     menuItem(
       "Charts", tabName = "charts", icon=icon("bar-chart-o"), startExpand = TRUE,

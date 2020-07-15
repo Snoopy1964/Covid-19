@@ -198,7 +198,7 @@ server <- function(input, output, session) {
       dplyr::filter(day >= start.date, charcode == selected.country)  
     
     norm.factor <- 100000/as.numeric(ds.tmp %>% summarize(population = max(population)))
-    # World summiert
+    # Selected Country (oder World) summiert
     gg1 <- ds.tmp                                           %>% 
       ggplot(aes(x=day))                                     +
       geom_area(aes(y = cases,          fill = "active"))    +
@@ -274,18 +274,7 @@ server <- function(input, output, session) {
       )                                
     
     
-    # World summiert pro Tag
-    ds.tmp <- df.input() %>% 
-      group_by(day)                           %>%
-      dplyr::filter(day >= start.date)        %>%
-      summarize(
-        cases.day     = sum(cases.day),
-        active.day    = sum(active.day),
-        recovered.day = sum(recovered.day),
-        deaths.day    = sum(deaths.day),
-        mortality.day = deaths.day/cases.day
-      )          
-    
+    # Selected Country (oder World) summiert
     gg.data <- ds.tmp %>% 
       ggplot(aes(x=day))                       +                 
       theme(
