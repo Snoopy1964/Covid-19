@@ -319,6 +319,28 @@ loadData.rapidAPI <- function() {
 }
 
 #------------------------------------------------------------------------------
+# get country iso name(s) from (list of) charcode(s)
+#------------------------------------------------------------------------------
+map.country.charcode <- function(ccc) {
+  return(
+    (countries %>%
+       dplyr::filter(charcode %in% ccc) %>%
+       select(country.iso))[[1]]
+  )
+}
+
+country.iso.name.get_by_charcode <- function(char2) {
+ 
+  if (char2 == "AA") {
+    sel <- "World"
+  } else {
+    sel <- (countries %>% dplyr::filter(charcode == char2) %>% select(country.iso))[[1]]
+  }
+  return(paste(sel))
+}
+
+
+#------------------------------------------------------------------------------
 # (1) convert parameter country from covid-19 API to standard names of iso code
 #------------------------------------------------------------------------------
 # 
@@ -377,18 +399,26 @@ convert.iso <- function(names) {
   return(country.iso)
 }
 
+# Helper function for output format of numbers
+format.number <- function(d, vz = TRUE) {
+  if(vz) {
+    return(formatC(d, big.mark=".", decimal.mark=",", flag="+", format="d"))
+  } else {
+    return(formatC(d, big.mark=".", decimal.mark=",", format="d"))
+    
+  }
+}
 
 #-------------------------------------------------------------------------------
 # build selector for country selection
 #-------------------------------------------------------------------------------
 country.selector <- function(ds) {
-  f4.country <- ds                                       %>% 
-    # dplyr::filter(day == today()-1)                      %>% 
-    select(charcode, country.iso, cases)                 %>% 
-    arrange(desc(cases))                                 %>% 
-    mutate(selector = paste(country.iso, "(",cases,")")) %>%
-    select(selector,charcode)                            %>%
+  f4.country <- ds                                                                %>% 
+    select(charcode, country.iso, cases)                                          %>% 
+    arrange(desc(cases))                                                          %>% 
+    mutate(selector = paste(country.iso, "(",format.number(cases, vz=FALSE),")")) %>%
+    select(selector,charcode)                                                     %>%
     deframe()
-
-    return(f4.country)
+  
+  return(f4.country)
 }

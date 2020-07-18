@@ -50,7 +50,7 @@ if (file.exists(".api_key.R")) {
 # some helper functions
 #-----------------------------------------------------
 
-#source("01_helper_func_data.R")
+source("01_helper_func_data.R")
 # 
 # 
 #-----------------------------------------------------
@@ -90,30 +90,7 @@ server <- function(input, output, session) {
                              input$countryId)
     )
   })
-  # df.world <- reactive({
-  #   if(debug.on) {
-  #     cat("--------------> df.world()\n")
-  #     print(paste("max date: ",(df.input() %>% summarize(max.day = max(day)))[[1]]))
-  #   }
-  #   df.tmp <- df.input()      %>% 
-  #     group_by(day) %>% 
-  #     summarize(cases         = sum(cases),
-  #               cases.day     = sum(cases.day),
-  #               active        = sum(active, na.rm = TRUE),
-  #               active.day    = sum(active.day, na.rm = TRUE),
-  #               recovered     = sum(recovered, na.rm = TRUE),
-  #               recovered.day = sum(recovered.day, na.rm = TRUE),
-  #               deaths        = sum(deaths, na.rm = TRUE),
-  #               deaths.day    = sum(deaths.day, na.rm = TRUE),
-  #               population    = sum(population, na.rm = TRUE)
-  #     )
-  #   if(debug.on) {
-  #     print(df.tmp %>% dplyr::filter(day == "2020-06-02"))
-  #     cat("--------------> end of df.world()\n")
-  #   }
-  #   return(df.tmp)
-  # })
-  
+
   df.region <- reactive({
     if(debug.on) cat("---------> df.region()\n")
     region <- getGrouping(input$region.select)
@@ -142,21 +119,6 @@ server <- function(input, output, session) {
     return( df.input() %>% dplyr::filter(day == input$date.snapshot))
   })
   
-  world.cases <- function(sum.attribute) {
-    # dummy <- input$load.data
-    if(debug.on) cat("------------> world.cases()", input$date.snapshot, sum.attribute,"\n")
-    date  <- input$date.snapshot  
-    df.tmp <- df.input()                           %>% 
-      group_by(day)                                %>% 
-      dplyr::filter(day == date, charcode == "AA") %>%
-      rename(
-        total.number = .data[[sum.attribute]],
-        day.number   = .data[[paste(sum.attribute,"day",sep=".")]]
-      )                    
-    if(debug.on) cat("------end---> world.cases()\n")
-    return(df.tmp)
-  }
-
   df.country <- reactive({
     selected.country <- input$selectCountry
     df.tmp  <- df.input()                      %>% 
@@ -185,7 +147,7 @@ server <- function(input, output, session) {
       session,
       "selectCountry",
       choices = country.selector(df.day()),
-      selected = "DE"
+      selected = "AA"
     )
   })
   #----------------------------------------------------------
@@ -193,6 +155,9 @@ server <- function(input, output, session) {
   #----------------------------------------------------------
   generateChartsOverview <- function(selected.country = "AA", ma = -0.02){
     # default selection is World (charcode = AA)
+    if(debug.on) {
+      paste("------------> selected.country:", selected.country, "\n")
+    }
     start.date <- as.Date("2020-02-01")
     ds.tmp <- df.input()               %>%
       dplyr::filter(day >= start.date, charcode == selected.country)  
@@ -680,14 +645,13 @@ server <- function(input, output, session) {
 #---------------------------------------
 # Dashboard
 #---------------------------------------
-  # Helper function for output format of numbers
-  format.number <- function(d) {
-    return(formatC(d, big.mark=".", decimal.mark=",", flag="+", format="d"))
-  }
   
-  output$world.total.cases <- renderValueBox({
-    if(debug.on) cat("---------> output$world.total.cases\n" )
-    cases.tmp    <- world.cases("cases")
+  output$region <- renderText(country.iso.name.get_by_charcode(input$selectCountry))
+
+  
+  output$total.cases <- renderValueBox({
+    if(debug.on) cat("---------> output$total.cases\n" )
+    cases.tmp    <- country.cases("cases")
     total.number <- cases.tmp$total.number[1]
     day.number   <- cases.tmp$day.number[1]
     valueBox(
@@ -701,9 +665,9 @@ server <- function(input, output, session) {
     )
   })  
   
-  output$world.active.cases <- renderValueBox({
-    if(debug.on) cat("---------> output$world.active.cases\n" )
-    cases.tmp    <- world.cases("active")
+  output$active.cases <- renderValueBox({
+    if(debug.on) cat("---------> output$active.cases\n" )
+    cases.tmp    <- country.cases("active")
     total.number <- cases.tmp$total.number[1]
     day.number   <- cases.tmp$day.number[1]
     valueBox(
@@ -717,9 +681,9 @@ server <- function(input, output, session) {
     )
   })  
   
-  output$world.recovered.cases <- renderValueBox({
-    if(debug.on) cat("---------> output$world.recovered.cases\n" )
-    cases.tmp    <- world.cases("recovered")
+  output$recovered.cases <- renderValueBox({
+    if(debug.on) cat("---------> output$recovered.cases\n" )
+    cases.tmp    <- country.cases("recovered")
     total.number <- cases.tmp$total.number[1]
     day.number   <- cases.tmp$day.number[1]
     valueBox(
@@ -733,9 +697,9 @@ server <- function(input, output, session) {
     )
   })  
   
-  output$world.death <- renderValueBox({
-    if(debug.on) cat("---------> output$world.death\n" )
-    cases.tmp    <- world.cases("deaths")
+  output$deaths <- renderValueBox({
+    if(debug.on) cat("---------> output$deaths\n" )
+    cases.tmp    <- country.cases("deaths")
     total.number <- cases.tmp$total.number[1]
     day.number   <- cases.tmp$day.number[1]
     valueBox(
@@ -749,9 +713,9 @@ server <- function(input, output, session) {
     )
   })  
 
-  output$summary.charts.world <- renderPlot({
-    if(debug.on) cat("---------> generateChartsOverview() for World\n" )
-    generateChartsOverview("AA")
+  output$summary.charts <- renderPlot({
+    if(debug.on) cat("---------> generateChartsOverview() for", input$selectCountry,"\n" )
+    generateChartsOverview(input$selectCountry)
   })
   
   output$summary.charts.regions <- renderPlot({
@@ -770,80 +734,6 @@ server <- function(input, output, session) {
     )
   })
   
-  #---------------------------------------
-  # Country Details
-  #---------------------------------------  
-  output$country.total.cases <- renderValueBox({
-    if(debug.on) cat("---------> output$country.total.cases\n" )
-    cases.tmp    <- country.cases("cases")
-    total.number <- cases.tmp$total.number[1]
-    day.number   <- cases.tmp$day.number[1]
-  
-    valueBox(
-      h4("cases"),
-      tagList(
-        h4(format.number(total.number)),
-        h6(paste("(", format.number(day.number),")"))
-      ),
-      icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
-      color = "blue"
-    )
-  })  
-  
-output$country.active.cases <- renderValueBox({
-  if(debug.on) cat("---------> output$country.active.cases\n" )
-  cases.tmp    <- country.cases("active")
-  total.number <- cases.tmp$total.number[1]
-  day.number   <- cases.tmp$day.number[1]
-  valueBox(
-    h4("active"),
-    tagList(
-      h4(format.number(total.number)),
-      h6(paste("(", format.number(day.number),")"))
-    ),
-    icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
-    color = "red"
-  )
-})  
-
-output$country.recovered.cases <- renderValueBox({
-  if(debug.on) cat("---------> output$country.recovered.cases\n" )
-  cases.tmp    <- country.cases("recovered")
-  total.number <- cases.tmp$total.number[1]
-  day.number   <- cases.tmp$day.number[1]
-  
-  valueBox(
-    h4("recovered"),
-    tagList(
-      h4(format.number(total.number)),
-      h6(paste("(", format.number(day.number),")"))
-    ),
-    icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
-    color = "green"
-  )
-})  
-
-output$country.death <- renderValueBox({
-  if(debug.on) cat("---------> output$country.death\n" )
-  cases.tmp    <- country.cases("deaths")
-  total.number <- cases.tmp$total.number[1]
-  day.number   <- cases.tmp$day.number[1]
-  
-  valueBox(
-    h4("deaths"),
-    tagList(
-      h4(format.number(total.number)),
-      h6(paste("(", format.number(day.number),")"))
-    ),
-    icon  = icon('export', lib = 'glyphicon'),#icon("sign-in"),
-    color = "black"
-  )
-})
-
-output$summary.charts.country <- renderPlot({
-  if(debug.on) cat("---------> generateChartsOverview() for: ",input$selectCountry, "\n" )
-  generateChartsOverview(input$selectCountry)
-})
 
 
   #---------------------------------------
@@ -860,35 +750,14 @@ output$summary.charts.country <- renderPlot({
         lengthMenu = c(5, 10, 20, 50),
         pageLength = 20,
         # language   = list(thousands = "."),
-        order      = list(list(2,'desc')),
+        order      = list(list(1,'desc')),
         columnDefs = list(list(width = '100px', targets = c(1)))
       )) %>% 
       formatRound(names(df.tmp)[-1], 0)
   })
   
-  #---------------------------------------
-  # Statistics
-  #---------------------------------------
-  output$cases.countries1 <- DT::renderDataTable({
-    df.tmp <- df.day() %>% select(cases, country.iso)
-    cat("----------------------> DT::renderDataTable()")
-    print(df.tmp)
-    DT::datatable(
-      df.tmp,
-      rownames = FALSE,
-      options = list(
-        paging = FALSE,
-        scrollY = TRUE,
-        lengthMenu = FALSE,
-        pageLength = 20,
-        # language   = list(thousands = "."),
-        order      = list(list(0,'desc'))
-        # columnDefs = list(list(width = '100px', targets = c(1,2)))
-      )) %>% 
-      formatRound(names(df.tmp)[-2], 0)
-  })
-  
-  #---------------------------------------
+
+#---------------------------------------
 # Active Cases
 #---------------------------------------
   output$compare.countries.active <- renderPlot({
