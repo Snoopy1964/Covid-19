@@ -92,7 +92,7 @@ sidebar <-dashboardSidebar(
   sidebarMenu(
     selectInput("selectCountry", label = NULL,
                 # choices = countries$country.iso,
-                choices = c("World", "United States", "Germany"),
+                choices = list("World" = "AA", "United States" = "US", "Germany" = "DE"),
                 # choices = list("Choice 1" = 1, "Choice 2" = 2, "Choice 3" = 3),
                 selected = "World"),
     menuItem("Overview" ,        tabName = "world_dashboard", icon = icon("dashboard"), selected = TRUE),
