@@ -90,11 +90,6 @@ header  <- dashboardHeader(title = "Snoopy's Covid 19 dashboard")
 
 sidebar <-dashboardSidebar(
   sidebarMenu(
-    selectInput("selectCountry", label = NULL,
-                # choices = countries$country.iso,
-                choices = list("World" = "AA", "United States" = "US", "Germany" = "DE"),
-                # choices = list("Choice 1" = 1, "Choice 2" = 2, "Choice 3" = 3),
-                selected = "World"),
     menuItem("Overview" ,        tabName = "world_dashboard", icon = icon("dashboard"), selected = TRUE),
     menuItem("Statistics (day)", tabName = "statistics"     , icon = icon("th")),
     # menuItem("Countries", tabName = "country_dashboard", icon =icon("dashboard"), selected = FALSE, startExpanded = TRUE,
@@ -125,8 +120,16 @@ body <- dashboardBody(
     # Tab: world data
     tabItem(
       tabName = "world_dashboard",
-
-      fluidRow(div(class="text-center", h3(textOutput("region")))),
+      fluidRow(
+        selectInput("selectCountry", label = NULL,
+                    # choices = countries$country.iso,
+                    choices = list("World" = "AA", "United States" = "US", "Germany" = "DE"),
+                    # choices = list("Choice 1" = 1, "Choice 2" = 2, "Choice 3" = 3),
+                    selected = "World"),
+        
+      ),
+      
+      # fluidRow(div(class="text-center", h3(textOutput("region")))),
       fluidRow(
         valueBoxOutput("total.cases", width=3),
         valueBoxOutput("active.cases", width=3),
