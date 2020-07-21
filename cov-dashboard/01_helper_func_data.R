@@ -412,13 +412,22 @@ format.number <- function(d, vz = TRUE) {
 #-------------------------------------------------------------------------------
 # build selector for country selection
 #-------------------------------------------------------------------------------
-country.selector <- function(ds) {
-  f4.country <- ds                                                                %>% 
-    select(charcode, country.iso, cases)                                          %>% 
-    arrange(desc(cases))                                                          %>% 
-    mutate(selector = paste(country.iso, "(",format.number(cases, vz=FALSE),")")) %>%
-    select(selector,charcode)                                                     %>%
-    deframe()
-  
+country.selector <- function(ds, addNr = TRUE) {
+  if(addNr){
+    f4.country <- ds                                                                %>% 
+      select(charcode, country.iso, cases)                                          %>% 
+      arrange(desc(cases))                                                          %>% 
+      mutate(selector = paste(country.iso, "(",format.number(cases, vz=FALSE),")")) %>%
+      select(selector,charcode)                                                     %>%
+      deframe()
+  } else {
+    f4.country <- ds                                                                %>% 
+      select(charcode, country.iso, cases)                                          %>% 
+      arrange(desc(cases))                                                          %>% 
+      mutate(selector = country.iso)                                                %>%
+      select(selector,charcode)                                                     %>%
+      deframe()
+    
+  }  
   return(f4.country)
 }

@@ -86,7 +86,8 @@ server <- function(input, output, session) {
   
   df.active <- reactive({
     return(df.input() %>% 
-             dplyr::filter(country.iso %in% 
+             dplyr::filter(charcode %in% 
+            # dplyr::filter(country.iso %in% 
                              input$countryId)
     )
   })
@@ -149,6 +150,18 @@ server <- function(input, output, session) {
       choices = country.selector(df.day()),
       selected = "AA"
     )
+    
+    updateSelectInput(
+      session,
+      "countryId",
+      choices = country.selector(df.day(), addNr = FALSE),
+      selected = c("AA","DE", "US", "IN")
+      # selected = c("World",
+      #              "Germany", 
+      #              "United States",
+      #              "United Kingdom")
+    )
+    
   })
   #----------------------------------------------------------
   # generate plots to be used inside server output
@@ -718,6 +731,13 @@ server <- function(input, output, session) {
     generateChartsOverview(input$selectCountry)
   })
   
+  output$summary.map <- renderText({
+    "Coming soon...."
+  })
+  #---------------------------------------
+  # Top Regions
+  #---------------------------------------
+  
   output$summary.charts.regions <- renderPlot({
     generateChartsRegions()  
   })
@@ -737,7 +757,7 @@ server <- function(input, output, session) {
 
 
   #---------------------------------------
-  # Statistics
+  # Statistics (day)
   #---------------------------------------
   output$cases.countries <- DT::renderDataTable({
     df.tmp <- df.day() %>% select(country.iso, cases, cases.day, active, recovered, deaths, population)
