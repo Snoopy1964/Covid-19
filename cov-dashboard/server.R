@@ -762,10 +762,13 @@ server <- function(input, output, session) {
   output$cases.countries <- DT::renderDataTable({
     df.tmp <- df.day() %>% select(country.iso, cases, cases.day, active, recovered, deaths, population)
     cat("----------------------> DT::renderDataTable()")
+    df.tmp <- df.tmp %>% mutate(perc.population = cases/population)
     print(df.tmp)
-    DT::datatable(
+    col.names.tmp <- c("Land", "Cases", "Cases per Day", "active", "recovered", "Deaths", "Population", "% of Population")
+        DT::datatable(
       df.tmp,
       rownames = FALSE,
+      colnames = col.names.tmp,
       options = list(
         lengthMenu = c(5, 10, 20, 50),
         pageLength = 20,
@@ -773,7 +776,8 @@ server <- function(input, output, session) {
         order      = list(list(1,'desc')),
         columnDefs = list(list(width = '100px', targets = c(1)))
       )) %>% 
-      formatRound(names(df.tmp)[-1], 0)
+      formatRound(names(df.tmp)[-1], 0) %>%
+      formatPercentage(c("perc.population"), 4)
   })
   
 

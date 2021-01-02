@@ -19,7 +19,7 @@ if( 1==2 ) {
   
   # df.latest <- df %>% group_by(charcode)  %>% dplyr::filter(day == today())
   df.latest <- df %>% dplyr::filter(day == today()-1)
-  df.latest <- df %>% dplyr::filter(day == as.Date("2020-06-08"))
+  # df.latest <- df %>% dplyr::filter(day == as.Date("2020-06-08"))
   
   gg.incidence.latest <- df.latest                                      %>% 
     mutate(Rsum = cases/population*100000)                        %>% 
@@ -191,7 +191,7 @@ df.day <- function(){
 
 df.country <- function() {
   # country <- input$selectCountry
-  selected.country <- "AF"
+  selected.country <- "DE"
   df.tmp  <- df.input()                      %>% 
     group_by(day)                            %>% 
     dplyr::filter(charcode == selected.country)
